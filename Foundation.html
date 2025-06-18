@@ -2016,37 +2016,20 @@
                 // Combines all scene SDFs to find the closest object
                 fn sceneSDF(p: vec3<f32>, current_time: f32, warp_strength: f32, object_id: ptr<function, u32>) -> f32 {
                     var min_dist: f32 = MAX_DIST;
-                    *object_id = 999u; // Default to 'no hit' ID
+                    *object_id = 999u; // Default no hit
 
-                    // Terrain SDF (Bypassed for simple sphere test)
-                    /*
-                    let terrain_dist = p.y - terrainHeight(p.x, p.z, current_time);
-                    if (terrain_dist < min_dist) {
-                        min_dist = terrain_dist;
-                        *object_id = 0u; // ID for terrain
-                    }
-                    */
+                    // Only test spheres[1] if available
+                    if (raytracerUBO.numPrimitives > 1u) {
+                        let test_sphere_idx = 1u; // spheres[1] is our target red sphere
+                        let s = spheres[test_sphere_idx];
+                        let sphere_dist = sdSphere(p, s, warp_strength); // Use existing sdSphere
 
-                    // Water Plane SDF (Bypassed for simple sphere test)
-                    /*
-                    let water_dist = sdWaterPlane(p, current_time, warp_strength);
-                    if (water_dist < min_dist) {
-                        min_dist = water_dist;
-                        *object_id = 1u; // ID for water
+                        if (sphere_dist < min_dist) {
+                            min_dist = sphere_dist;
+                            // object_id for spheres[1] should be 1 (sphere_idx) + 2u = 3u.
+                            *object_id = test_sphere_idx + 2u;
+                        }
                     }
-                    */
-                    
-                    // Spheres SDF (via BVH traversal)
-                    var closest_sphere_dist = MAX_DIST; // Initialize with MAX_DIST
-                    var closest_sphere_original_idx: u32 = 0u;
-                    bvh_scene_sdf_spheres(p, vec3<f32>(0.0f, 0.0f, 0.0f), current_time, warp_strength, &closest_sphere_dist, &closest_sphere_original_idx);
-
-                    // If a sphere is hit and is closer than any previous (bypassed) objects
-                    if (closest_sphere_dist < min_dist) {
-                        min_dist = closest_sphere_dist;
-                        *object_id = closest_sphere_original_idx + 2u; // Sphere IDs start from 2
-                    }
-                    // If no sphere is hit, min_dist remains MAX_DIST and object_id remains 999u
                     return min_dist;
                 }
 
@@ -2587,9 +2570,21 @@
                     let initial_ray = Ray(cameraUBO.position.xyz, ideal_ray_direction_world);
 
                     // Get Sky Color
-                    let sky_color_val = getSkyColor(initial_ray.direction, raytracerUBO.skyPreset);
+                    // let sky_color_val = getSkyColor(initial_ray.direction, raytracerUBO.skyPreset);
+                    // textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sky_color_val, 1.0f));
 
-                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sky_color_val, 1.0f));
+                    // Raymarch the scene
+                    let hit_info = raymarch(initial_ray, timeUBO.time, raytracerUBO.warpStrength);
+
+                    if (hit_info.is_hit && hit_info.object_id == 3u) { // 3u corresponds to spheres[1]
+                        // hit_info.sphere_idx should be 1 if object_id is 3u
+                        let sphere_albedo = spheres[hit_info.sphere_idx].albedo_metallic.xyz;
+                        textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sphere_albedo, 1.0f));
+                    } else {
+                        // Fallback to sky color if no hit or not the target sphere
+                        let sky_color_val = getSkyColor(initial_ray.direction, raytracerUBO.skyPreset);
+                        textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sky_color_val, 1.0f));
+                    }
                 }
                 `; 
 
