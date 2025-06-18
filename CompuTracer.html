@@ -599,9 +599,9 @@
 
         // Camera and scene variables
         const camera = {
-            position: [0.0, 5.0, 20.0],
-            rotationX: -0.05,
-            rotationY: Math.PI,
+            position: [0.0, 2.0, 10.0], // Updated for simple scene
+            rotationX: -0.15, // Updated for simple scene (looking slightly down)
+            rotationY: 0.0, // Updated for simple scene (looking straight ahead)
             forward: [0, 0, -1],
             right: [1, 0, 0],
             up: [0, 1, 0],
@@ -616,10 +616,10 @@
         };
 
         const light = {
-            position: [0.0, 10.0, 2.8],
-            brightness: 1.0,
-            size: 0.4,
-            color: [1.0, 1.0, 1.0] // Default to white
+            position: [0.0, 5.0, 5.0], // Updated for simple scene
+            brightness: 1.5, // Updated for simple scene
+            size: 0.5, // Updated for simple scene
+            color: [1.0, 1.0, 1.0] // Updated for simple scene
         };
 
         let sunHue = 0.0; // 0.0 to 1.0, representing 0-360 degrees
@@ -627,7 +627,7 @@
         // Sphere primitives data (JavaScript objects, will be transformed to Float32Array)
         let spheres = []; 
         // Changed default settings for initial load to reduce GPU stress
-        let targetSphereCount = 5; 
+        let targetSphereCount = 2; // Fixed for simple scene test
         let lastSphereCount = targetSphereCount; // Track last count to prevent redundant BVH rebuilds
 
         // Global variable to store the last built BVH result on CPU side for reuse
@@ -642,12 +642,11 @@
         let terrainHeightScale = 0.0;
         let terrainFrequency = 0.15;
 
-        // Changed default settings for initial load to reduce GPU stress
+        // Default raytracing parameters for simple scene
         let maxBounces = 2; 
         let maxRaymarchSteps = 150; 
-        // Changed default settings for initial load to reduce GPU stress
-        let shadowSamples = 4; 
-        let dofSamples = 4; // Using same as shadowSamples for now
+        let shadowSamples = 1; // Updated for simple scene
+        let dofSamples = 1; // Updated for simple scene
 
         const MATERIAL_DIFFUSE = 0;
         const MATERIAL_REFLECTIVE = 1;
@@ -815,9 +814,11 @@
         function applySettingsAndStart() {
             // Update global settings based on UI
             targetSphereCount = parseInt(numSpheresRange.value);
-            maxBounces = parseInt(maxBouncesRange.value);
-            shadowSamples = parseInt(samplesPerPixelRange.value);
-            dofSamples = parseInt(samplesPerPixelRange.value); // Use same for now
+            targetSphereCount = 2; // Override for simple sphere test
+            maxBounces = 2; // Override for simple sphere test
+            shadowSamples = 1; // Override for simple sphere test
+            dofSamples = 1; // Override for simple sphere test
+            // Note: maxRaymarchSteps is already 150 by default
 
             // Update scene controls sliders to reflect these new values
             sphereCountSlider.value = targetSphereCount; sphereCountValue.textContent = targetSphereCount;
@@ -894,9 +895,9 @@
             resetAccumulation(); // Reset accumulation on setting change
         });
 
-        waveStrengthSlider.addEventListener('input', (e) => { waveStrength = parseFloat(e.target.value); waveStrengthValue.textContent = waveStrength.toFixed(2); updateWaterUniformBuffer(); resetAccumulation(); });
-        waveFrequencySlider.addEventListener('input', (e) => { waveFrequency = parseFloat(e.target.value); waveFrequencyValue.textContent = waveFrequency.toFixed(1); updateWaterUniformBuffer(); resetAccumulation(); });
-        waveSpeedSlider.addEventListener('input', (e) => { waveSpeed = parseFloat(e.target.value); waveSpeedValue.textContent = waveSpeed.toFixed(2); updateWaterUniformBuffer(); resetAccumulation(); });
+        /* waveStrengthSlider.addEventListener('input', (e) => { waveStrength = parseFloat(e.target.value); waveStrengthValue.textContent = waveStrength.toFixed(2); updateWaterUniformBuffer(); resetAccumulation(); }); */
+        /* waveFrequencySlider.addEventListener('input', (e) => { waveFrequency = parseFloat(e.target.value); waveFrequencyValue.textContent = waveFrequency.toFixed(1); updateWaterUniformBuffer(); resetAccumulation(); }); */
+        /* waveSpeedSlider.addEventListener('input', (e) => { waveSpeed = parseFloat(e.target.value); waveSpeedValue.textContent = waveSpeed.toFixed(2); updateWaterUniformBuffer(); resetAccumulation(); }); */
         
         refractiveIndexSlider.addEventListener('input', (e) => { 
             globalRefractiveIndex = parseFloat(e.target.value); 
@@ -912,8 +913,8 @@
         }); 
 
         warpStrengthSlider.addEventListener('input', (e) => { globalWarpStrength = parseFloat(e.target.value); warpStrengthValue.textContent = globalWarpStrength.toFixed(2); updateRaytracerParamsUniformBuffer(); resetAccumulation(); }); 
-        terrainHeightSlider.addEventListener('input', (e) => { terrainHeightScale = parseFloat(e.target.value); terrainHeightValue.textContent = terrainHeightScale.toFixed(1); updateTerrainUniformBuffer(); resetAccumulation(); });
-        terrainFrequencySlider.addEventListener('input', (e) => { terrainFrequency = parseFloat(e.target.value); terrainFrequencyValue.textContent = terrainFrequency.toFixed(2); updateTerrainUniformBuffer(); resetAccumulation(); });
+        /* terrainHeightSlider.addEventListener('input', (e) => { terrainHeightScale = parseFloat(e.target.value); terrainHeightValue.textContent = terrainHeightScale.toFixed(1); updateTerrainUniformBuffer(); resetAccumulation(); }); */
+        /* terrainFrequencySlider.addEventListener('input', (e) => { terrainFrequency = parseFloat(e.target.value); terrainFrequencyValue.textContent = terrainFrequency.toFixed(2); updateTerrainUniformBuffer(); resetAccumulation(); }); */
         bouncesSlider.addEventListener('input', (e) => { maxBounces = parseInt(e.target.value); bouncesValue.textContent = maxBounces; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
         raymarchStepsSlider.addEventListener('input', (e) => { maxRaymarchSteps = parseInt(e.target.value); raymarchStepsValue.textContent = maxRaymarchSteps; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
         shadowSamplesSlider.addEventListener('input', (e) => { shadowSamples = parseInt(e.target.value); shadowSamplesValue.textContent = shadowSamples; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
@@ -1240,95 +1241,32 @@
         const sphereMinRadius = 0.5;
         const sphereMaxRadius = 1.5;
 
-        function populateInitialSpheres(count) {
+        function populateInitialSpheres(count) { // count argument is now ignored
             const newSpheres = [];
             
-            // Fixed floor sphere
-            if (count > 0) { // Always add ground if there's at least one sphere desired
-                newSpheres.push({
-                    position: [0.0, -100.5, 0.0], radius: 100.0,
-                    color: [0.7, 0.7, 0.7], 
-                    baseReflectivity: 0.04, 
-                    perPixelRoughness: 0.9, 
-                    metallic: 0.0,
-                    refractiveIndex: 1.0, // Not used for diffuse, but good to have
-                    materialType: MATERIAL_DIFFUSE
-                });
-            }
+            // Sphere 1 (Ground)
+            newSpheres.push({
+                position: [0.0, -100.5, 0.0], radius: 100.0,
+                color: [0.7, 0.7, 0.7],
+                baseReflectivity: 0.04,
+                perPixelRoughness: 0.9,
+                metallic: 0.0,
+                refractiveIndex: 1.0,
+                materialType: MATERIAL_DIFFUSE
+            });
 
-            // Generate other spheres
-            for (let i = newSpheres.length; i < count; ++i) { 
-                let materialType;
-                const r = Math.random();
-                if (r < 0.4) { materialType = MATERIAL_DIFFUSE; } 
-                else if (r < 0.7) { materialType = MATERIAL_REFLECTIVE; } 
-                else { materialType = MATERIAL_REFRACTIVE; }
+            // Sphere 2 (Test Sphere)
+            newSpheres.push({
+                position: [0.0, 1.0, 0.0], radius: 1.0,
+                color: [0.8, 0.2, 0.2],
+                baseReflectivity: 0.04,
+                perPixelRoughness: 0.5,
+                metallic: 0.1,
+                refractiveIndex: 1.0,
+                materialType: MATERIAL_DIFFUSE
+            });
 
-                let s = {
-                    position: [0,0,0], // Will be set in collision loop
-                    radius: sphereMinRadius + Math.random() * (sphereMaxRadius - sphereMinRadius),
-                    color: [0,0,0], // Will be set by material type
-                    baseReflectivity: 0.04, 
-                    perPixelRoughness: 0.0, 
-                    metallic: 0.0,
-                    refractiveIndex: 1.0, 
-                    materialType: materialType
-                };
-
-                // Simple distance utility
-                function distance(p1, p2) { 
-                    const dx = p1[0] - p2[0]; 
-                    const dy = p1[1] - p2[1]; 
-                    const dz = p1[2] - p2[2]; 
-                    return Math.sqrt(dx*dx + dy*dy + dz*dz); 
-                }
-                
-                let attempts = 0; 
-                const max_attempts = 50; // Increased attempts for better placement
-                let collided;
-
-                // Attempt to place sphere without collision
-                do {
-                    collided = false;
-                    s.position[0] = (Math.random() - 0.5) * 15;
-                    s.position[1] = (Math.random() - 0.5) * 4 + 2.0;
-                    s.position[2] = (Math.random() - 0.5) * 15;
-
-                    for (let j = 0; j < newSpheres.length; ++j) {
-                        // Exclude the ground plane from collision checks for other spheres
-                        if (newSpheres[j].radius === 100.0 && newSpheres[j].position[1] === -100.5) {
-                            continue;
-                        }
-                        if (distance(s.position, newSpheres[j].position) < (s.radius + newSpheres[j].radius + 0.5)) {
-                            collided = true;
-                            break;
-                        }
-                    }
-                    attempts++;
-                } while (collided && attempts < max_attempts);
-
-                // Set material properties based on type
-                if (materialType === MATERIAL_DIFFUSE) { 
-                    s.baseReflectivity = 0.04; 
-                    s.perPixelRoughness = Math.random() * 0.7 + 0.3; // More rough
-                    s.metallic = 0.0; 
-                    s.color = [Math.random(), Math.random(), Math.random()]; 
-                }
-                else if (materialType === MATERIAL_REFLECTIVE) { 
-                    s.baseReflectivity = Math.random() * 0.9 + 0.1; // More reflective
-                    s.perPixelRoughness = Math.random() * 0.1; // Less rough (shiny)
-                    s.metallic = 1.0; 
-                    s.color = [Math.random() * 0.7 + 0.3, Math.random() * 0.7 + 0.3, Math.random() * 0.7 + 0.3]; // Metallic colors
-                }
-                else if (materialType === MATERIAL_REFRACTIVE) { 
-                    s.baseReflectivity = 0.04; 
-                    s.perPixelRoughness = Math.random() * 0.1; // Smooth
-                    s.metallic = 0.0; 
-                    s.refractiveIndex = globalRefractiveIndex; // Use global setting
-                    s.color = [Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5]; // Translucent colors
-                }
-                newSpheres.push(s);
-            }
+            // Removed loop for generating other random spheres
             return newSpheres;
         }
 
@@ -2069,28 +2007,35 @@
                     var min_dist: f32 = MAX_DIST;
                     *object_id = 999u; // Default to 'no hit' ID
 
-                    // Terrain SDF
+                    // Terrain SDF (Bypassed for simple sphere test)
+                    /*
                     let terrain_dist = p.y - terrainHeight(p.x, p.z, current_time);
                     if (terrain_dist < min_dist) {
                         min_dist = terrain_dist;
                         *object_id = 0u; // ID for terrain
                     }
+                    */
 
-                    // Water Plane SDF
+                    // Water Plane SDF (Bypassed for simple sphere test)
+                    /*
                     let water_dist = sdWaterPlane(p, current_time, warp_strength);
                     if (water_dist < min_dist) {
                         min_dist = water_dist;
                         *object_id = 1u; // ID for water
                     }
+                    */
                     
                     // Spheres SDF (via BVH traversal)
-                    var closest_sphere_dist = MAX_DIST;
+                    var closest_sphere_dist = MAX_DIST; // Initialize with MAX_DIST
                     var closest_sphere_original_idx: u32 = 0u;
                     bvh_scene_sdf_spheres(p, vec3<f32>(0.0f, 0.0f, 0.0f), current_time, warp_strength, &closest_sphere_dist, &closest_sphere_original_idx);
+
+                    // If a sphere is hit and is closer than any previous (bypassed) objects
                     if (closest_sphere_dist < min_dist) {
                         min_dist = closest_sphere_dist;
                         *object_id = closest_sphere_original_idx + 2u; // Sphere IDs start from 2
                     }
+                    // If no sphere is hit, min_dist remains MAX_DIST and object_id remains 999u
                     return min_dist;
                 }
 
@@ -2724,8 +2669,8 @@
                 light.color = hsvToRgb(sunHue); // Set initial light color based on initial sunHue
                 updateLightUniformBuffer();
                 updateTimeUniformBuffer(0);
-                updateWaterUniformBuffer();
-                updateTerrainUniformBuffer();
+                // updateWaterUniformBuffer(); // Bypassed for simple sphere test
+                // updateTerrainUniformBuffer(); // Bypassed for simple sphere test
                 
                 // Initialize sphere data and BVH based on initial settings
                 manageSpheres(); // This now calls updateRaytracerParamsUniformBuffer and createComputeBindGroups
@@ -2754,24 +2699,28 @@
 
         // Initialize scene control UI values to match current global variables
         function initSceneControlsUI() {
-            sphereCountSlider.value = targetSphereCount; sphereCountValue.textContent = targetSphereCount;
-            lightXSlider.value = light.position[0]; lightYSlider.value = light.position[1]; lightZSlider.value = light.position[2];
-            lightBrightnessSlider.value = light.brightness; lightSizeSlider.value = light.size;
-            lightXValue.textContent = light.position[0].toFixed(1); lightYValue.textContent = light.position[1].toFixed(1);
-            lightZValue.textContent = light.position[2].toFixed(1); lightBrightnessValue.textContent = light.brightness.toFixed(1);
-            lightSizeValue.textContent = light.size.toFixed(1);
-            sunHueSlider.value = sunHue; sunHueValueSpan.textContent = sunHue.toFixed(2); // Set new slider value
-            waveStrengthSlider.value = waveStrength; waveFrequencySlider.value = waveFrequency; waveSpeedSlider.value = waveSpeed;
-            waveStrengthValue.textContent = waveStrength.toFixed(2); waveFrequencyValue.textContent = waveFrequency.toFixed(1);
-            waveSpeedValue.textContent = waveSpeed.toFixed(2);
+            // Updated for simple scene
+            sphereCountSlider.value = 2; sphereCountValue.textContent = 2;
+            lightXSlider.value = light.position[0]; lightXValue.textContent = light.position[0].toFixed(1);
+            lightYSlider.value = light.position[1]; lightYValue.textContent = light.position[1].toFixed(1);
+            lightZSlider.value = light.position[2]; lightZValue.textContent = light.position[2].toFixed(1);
+            lightBrightnessSlider.value = light.brightness; lightBrightnessValue.textContent = light.brightness.toFixed(1);
+            lightSizeSlider.value = light.size; lightSizeValue.textContent = light.size.toFixed(1);
+            sunHueSlider.value = sunHue; sunHueValueSpan.textContent = sunHue.toFixed(2);
+
+            waveStrengthSlider.value = waveStrength; waveStrengthValue.textContent = waveStrength.toFixed(2);
+            waveFrequencySlider.value = waveFrequency; waveFrequencyValue.textContent = waveFrequency.toFixed(1);
+            waveSpeedSlider.value = waveSpeed; waveSpeedValue.textContent = waveSpeed.toFixed(2);
             refractiveIndexSlider.value = globalRefractiveIndex; refractiveIndexValue.textContent = globalRefractiveIndex.toFixed(2);
             warpStrengthSlider.value = globalWarpStrength; warpStrengthValue.textContent = globalWarpStrength.toFixed(2);
             terrainHeightSlider.value = terrainHeightScale; terrainHeightValue.textContent = terrainHeightScale.toFixed(1);
             terrainFrequencySlider.value = terrainFrequency; terrainFrequencyValue.textContent = terrainFrequency.toFixed(2);
-            bouncesSlider.value = maxBounces; bouncesValue.textContent = maxBounces;
+
+            bouncesSlider.value = 2; bouncesValue.textContent = 2; // Updated for simple scene
             raymarchStepsSlider.value = maxRaymarchSteps; raymarchStepsValue.textContent = maxRaymarchSteps;
-            shadowSamplesSlider.value = shadowSamples; shadowSamplesValue.textContent = shadowSamples;
-            dofSamplesSlider.value = dofSamples; dofSamplesValue.textContent = dofSamples;
+            shadowSamplesSlider.value = 1; shadowSamplesValue.textContent = 1; // Updated for simple scene
+            dofSamplesSlider.value = 1; dofSamplesValue.textContent = 1; // Updated for simple scene
+
             focalDistanceSlider.value = camera.focalDistance; focalDistanceValue.textContent = camera.focalDistance.toFixed(1);
             apertureSizeSlider.value = camera.apertureSize; apertureSizeValue.textContent = camera.apertureSize.toFixed(2);
             if (skyPreset === 0) { sunnyDayButton.classList.add('active'); duskButton.classList.remove('active'); }
@@ -2953,12 +2902,12 @@
             switchView('menu'); // Start in the main menu
             
             // Set initial values for menu sliders based on global defaults
-            numSpheresRange.value = targetSphereCount;
-            numSpheresValueSpan.textContent = targetSphereCount;
-            maxBouncesRange.value = maxBounces;
-            maxBouncesValueSpan.textContent = maxBounces;
-            samplesPerPixelRange.value = shadowSamples; // Both shadow and dof samples
-            samplesPerPixelValueSpan.textContent = samplesPerPixelRange.value;
+            numSpheresRange.value = 2; // Updated for simple scene
+            numSpheresValueSpan.textContent = 2; // Updated for simple scene
+            maxBouncesRange.value = 2; // Updated for simple scene
+            maxBouncesValueSpan.textContent = 2; // Updated for simple scene
+            samplesPerPixelRange.value = 1; // Updated for simple scene (shadow/dof samples)
+            samplesPerPixelValueSpan.textContent = 1; // Updated for simple scene
         };
     </script>
 </body>
