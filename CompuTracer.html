@@ -1,3 +1,4 @@
+// Iteration: 1 - Sphere selection and real-time property editing (UI functional, GPU updated).
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3177,6 +3178,36 @@
             return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).padStart(6, '0');
         }
 
+        // --- Helper function to convert HEX color string to RGB array (0-1 range) ---
+        function hexToRgbArray(hex) {
+            if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) {
+                console.warn("Invalid hex string in hexToRgbArray, defaulting to [0,0,0]. Received:", hex);
+                return [0, 0, 0]; // Default to black for invalid input
+            }
+            let bigint = parseInt(hex.slice(1), 16);
+            let r = (bigint >> 16) & 255;
+            let g = (bigint >> 8) & 255;
+            let b = bigint & 255;
+            return [r / 255, g / 255, b / 255];
+        }
+
+        // --- Function to handle updates when a selected sphere's property changes ---
+        function handleSelectedSphereUpdate() {
+            if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) {
+                console.warn("handleSelectedSphereUpdate called with no valid sphere selected.");
+                return;
+            }
+            // The spheres array has already been updated by the individual event listeners.
+            // Now, update GPU buffers and reset rendering accumulation.
+            if (typeof updateGPUBuffers === "function" && typeof resetAccumulation === "function") {
+                updateGPUBuffers(spheres, currentBvhResult); // currentBvhResult must be globally available
+                resetAccumulation();
+                console.log(`Sphere ${globalSelectedSphereIndex} updated on GPU and accumulation reset.`);
+            } else {
+                console.error("updateGPUBuffers or resetAccumulation is not defined globally or in accessible scope for handleSelectedSphereUpdate.");
+            }
+        }
+
         // --- Function to update the Selected Sphere UI panel ---
         function updateSelectedSphereUI(sphereIndex) {
             if (!selectedSphereControlsDiv || !selectedSphereHeader || !selectedAlbedoColorInput ||
@@ -3264,6 +3295,83 @@
             } else {
                 console.error("Failed to find #selected-sphere-controls div during onload. Sphere editing UI will not function.");
             }
+
+            // --- Event Listeners for Selected Sphere Controls ---
+            if (selectedAlbedoColorInput) {
+                selectedAlbedoColorInput.addEventListener('input', (event) => {
+                    if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
+                    spheres[globalSelectedSphereIndex].color = hexToRgbArray(event.target.value);
+                    handleSelectedSphereUpdate();
+                });
+            }
+
+            if (selectedRadiusSlider) {
+                selectedRadiusSlider.addEventListener('input', (event) => {
+                    if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
+                    const value = validateAndClampInput(event, true); // Use existing validator
+                    spheres[globalSelectedSphereIndex].radius = value;
+                    if(selectedRadiusValueSpan) selectedRadiusValueSpan.textContent = value.toFixed(1);
+                    handleSelectedSphereUpdate();
+                });
+            }
+
+            if (selectedMetallicSlider) {
+                selectedMetallicSlider.addEventListener('input', (event) => {
+                    if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
+                    const value = validateAndClampInput(event, true);
+                    spheres[globalSelectedSphereIndex].metallic = value;
+                    if(selectedMetallicValueSpan) selectedMetallicValueSpan.textContent = value.toFixed(2);
+                    handleSelectedSphereUpdate();
+                });
+            }
+
+            if (selectedRoughnessSlider) {
+                selectedRoughnessSlider.addEventListener('input', (event) => {
+                    if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
+                    const value = validateAndClampInput(event, true);
+                    spheres[globalSelectedSphereIndex].perPixelRoughness = value;
+                    if(selectedRoughnessValueSpan) selectedRoughnessValueSpan.textContent = value.toFixed(2);
+                    handleSelectedSphereUpdate();
+                });
+            }
+
+            if (selectedReflectivitySlider) {
+                selectedReflectivitySlider.addEventListener('input', (event) => {
+                    if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
+                    const value = validateAndClampInput(event, true);
+                    spheres[globalSelectedSphereIndex].baseReflectivity = value;
+                    if(selectedReflectivityValueSpan) selectedReflectivityValueSpan.textContent = value.toFixed(2);
+                    handleSelectedSphereUpdate();
+                });
+            }
+
+            if (selectedMaterialTypeSelect) {
+                selectedMaterialTypeSelect.addEventListener('change', (event) => {
+                    if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
+                    const value = parseInt(event.target.value);
+                    spheres[globalSelectedSphereIndex].materialType = value;
+
+                    // Update visibility of refractive index control
+                    if (selectedRefractiveIndexControlGroup) {
+                        if (value === MATERIAL_REFRACTIVE) { // MATERIAL_REFRACTIVE should be globally defined (e.g., 2)
+                            selectedRefractiveIndexControlGroup.style.display = 'block';
+                        } else {
+                            selectedRefractiveIndexControlGroup.style.display = 'none';
+                        }
+                    }
+                    handleSelectedSphereUpdate();
+                });
+            }
+
+            if (selectedRefractiveIndexSlider) {
+                selectedRefractiveIndexSlider.addEventListener('input', (event) => {
+                    if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
+                    const value = validateAndClampInput(event, true);
+                    spheres[globalSelectedSphereIndex].refractiveIndex = value;
+                    if(selectedRefractiveIndexValueSpan) selectedRefractiveIndexValueSpan.textContent = value.toFixed(2);
+                    handleSelectedSphereUpdate();
+                });
+            }
         };
 
         // --- Global variable for selected sphere ---
@@ -3271,98 +3379,206 @@
         let highlightedSphereIndex = -1;
         let originalHighlightedSphereColor = null;
 
-        // --- Matrix Math Placeholder Functions ---
-        // IMPORTANT: These are simplified placeholders. For a correct implementation,
-        // a proper matrix library or full math functions would be needed.
-        function getProjectionMatrix(cam) {
-            // console.warn("getProjectionMatrix: Using Placeholder Identity Matrix");
-            // Simplified perspective matrix (very basic, not a real projection matrix)
-            // For a real one, you'd use fovy, aspect, near, far.
-            const f = 1.0 / Math.tan(cam.fovy / 2);
-            const nf = 1 / (cam.near - cam.far);
-            return [ // Column-major order
-                [f / cam.aspect, 0, 0, 0],
-                [0, f, 0, 0],
-                [0, 0, (cam.far + cam.near) * nf, -1],
-                [0, 0, (2 * cam.far * cam.near) * nf, 0]
-            ];
+        // --- Vector Math Utilities (3D) ---
+        function normalizeVector3D(v) {
+            let len = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+            if (len > 0.00001) {
+                return [v[0]/len, v[1]/len, v[2]/len];
+            }
+            // console.warn("normalizeVector3D: vector length is zero.");
+            return [0,0,0];
         }
 
-        function getViewMatrix(cam) {
-            // console.warn("getViewMatrix: Using Placeholder (simplified calculation based on camera vectors)");
-            // Simplified view matrix construction (assumes camera vectors are up-to-date)
-            const r = cam.right;
-            const u = cam.up;
-            const f = cam.forward; // WGSL uses -forward for view Z, so f here is -viewZ
-            const p = cam.position;
-
-            // This creates the inverse of the camera's world matrix
-            // (which is the view matrix)
+        function crossProduct3D(a, b) {
             return [
-                [r[0], u[0], -f[0], 0],
-                [r[1], u[1], -f[1], 0],
-                [r[2], u[2], -f[2], 0],
-                [-(r[0]*p[0] + r[1]*p[1] + r[2]*p[2]),
-                 -(u[0]*p[0] + u[1]*p[1] + u[2]*p[2]),
-                 -(-f[0]*p[0] - f[1]*p[1] - f[2]*p[2]), 1]
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0]
             ];
         }
 
+        // dotProduct is defined further down, and should be suitable for 3D vectors.
+        // normalizeVector is also defined further down.
+
+        // --- Matrix Math Functions ---
+
+        // Returns a 16-element Float32Array representing a 4x4 perspective projection matrix
+        // in column-major order. WebGPU NDC Z range is [0, 1].
+        // Parameters: fovy (vertical field of view in radians), aspect (width/height), near, far clipping planes.
+        function getProjectionMatrix(fovy, aspect, near, far) {
+            const f = 1.0 / Math.tan(fovy / 2);
+            const out = new Float32Array(16);
+
+            out[0] = f / aspect;
+            out[1] = 0;
+            out[2] = 0;
+            out[3] = 0;
+
+            out[4] = 0;
+            out[5] = f;
+            out[6] = 0;
+            out[7] = 0;
+
+            out[8] = 0;
+            out[9] = 0;
+            out[10] = far / (far - near); // Remaps Z to [0,1] for WebGPU
+            out[11] = 1;                  // Convention from libraries like gl-matrix for perspectiveZO ( oznacza kierunek osi Z )
+
+            out[12] = 0;
+            out[13] = 0;
+            out[14] = -(far * near) / (far - near); // Remaps Z to [0,1]
+            out[15] = 0;
+            return out;
+        }
+
+        // Multiplies two 4x4 matrices (Float32Arrays, column-major).
+        // out = a * b
+        function multiplyMatrices4x4(a, b) {
+            const out = new Float32Array(16);
+
+            const a00 = a[0], a01 = a[4], a02 = a[8], a03 = a[12];
+            const a10 = a[1], a11 = a[5], a12 = a[9], a13 = a[13];
+            const a20 = a[2], a21 = a[6], a22 = a[10], a23 = a[14];
+            const a30 = a[3], a31 = a[7], a32 = a[11], a33 = a[15];
+
+            const b00 = b[0], b01 = b[4], b02 = b[8], b03 = b[12];
+            const b10 = b[1], b11 = b[5], b12 = b[9], b13 = b[13];
+            const b20 = b[2], b21 = b[6], b22 = b[10], b23 = b[14];
+            const b30 = b[3], b31 = b[7], b32 = b[11], b33 = b[15];
+
+            out[0] = a00 * b00 + a01 * b10 + a02 * b20 + a03 * b30;
+            out[1] = a10 * b00 + a11 * b10 + a12 * b20 + a13 * b30;
+            out[2] = a20 * b00 + a21 * b10 + a22 * b20 + a23 * b30;
+            out[3] = a30 * b00 + a31 * b10 + a32 * b20 + a33 * b30;
+
+            out[4] = a00 * b01 + a01 * b11 + a02 * b21 + a03 * b31;
+            out[5] = a10 * b01 + a11 * b11 + a12 * b21 + a13 * b31;
+            out[6] = a20 * b01 + a21 * b11 + a22 * b21 + a23 * b31;
+            out[7] = a30 * b01 + a31 * b11 + a32 * b21 + a33 * b31;
+
+            out[8] = a00 * b02 + a01 * b12 + a02 * b22 + a03 * b32;
+            out[9] = a10 * b02 + a11 * b12 + a12 * b22 + a13 * b32;
+            out[10] = a20 * b02 + a21 * b12 + a22 * b22 + a23 * b32;
+            out[11] = a30 * b02 + a31 * b12 + a32 * b22 + a33 * b32;
+
+            out[12] = a00 * b03 + a01 * b13 + a02 * b23 + a03 * b33;
+            out[13] = a10 * b03 + a11 * b13 + a12 * b23 + a13 * b33;
+            out[14] = a20 * b03 + a21 * b13 + a22 * b23 + a23 * b33;
+            out[15] = a30 * b03 + a31 * b13 + a32 * b23 + a33 * b33;
+
+            return out;
+        }
+
+        // Returns a 16-element Float32Array representing a 4x4 view matrix (lookAt)
+        // in column-major order.
+        // cameraPosition: Array[3]
+        // cameraForward: Array[3] (direction camera is looking)
+        // cameraUp: Array[3] (up vector for the camera)
+        function getViewMatrix(cameraPosition, cameraForward, cameraUp) {
+            // P = cameraPosition
+            // U = cameraUp
+            // viewForward = cameraForward (direction vector)
+
+            // zAxis of the view coordinate system is the inverse of the direction the camera is looking.
+            const zAxis = normalizeVector3D([-cameraForward[0], -cameraForward[1], -cameraForward[2]]);
+            const xAxis = normalizeVector3D(crossProduct3D(cameraUp, zAxis));
+            const yAxis = normalizeVector3D(crossProduct3D(zAxis, xAxis));
+
+            const out = new Float32Array(16);
+
+            out[0] = xAxis[0];  out[4] = xAxis[1];  out[8] = xAxis[2];  out[12] = -dotProduct(xAxis, cameraPosition);
+            out[1] = yAxis[0];  out[5] = yAxis[1];  out[9] = yAxis[2];  out[13] = -dotProduct(yAxis, cameraPosition);
+            out[2] = zAxis[0];  out[6] = zAxis[1];  out[10] = zAxis[2]; out[14] = -dotProduct(zAxis, cameraPosition);
+            out[3] = 0;         out[7] = 0;         out[11] = 0;        out[15] = 1;
+
+            return out;
+        }
+
+        // Inverts a 4x4 matrix (Float32Array, column-major).
+        // This is a more robust version than the previous placeholder, but still not a full general inversion.
+        // It handles typical view and projection matrices better.
         function invertMatrix(m) {
-            // console.warn("invertMatrix: Using Placeholder (simplified for common camera matrices)");
-            // This is a placeholder and works for typical view/projection where bottom row is [0,0,X,Y] or [0,0,0,1]
-            // A full 4x4 matrix inversion is much more complex.
-            let result = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+            const out = new Float32Array(16);
 
-            // Transpose the 3x3 rotation/scale part
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 3; j++) {
-                    result[i][j] = m[j][i];
-                }
-            }
+            const m00 = m[0], m01 = m[1], m02 = m[2], m03 = m[3];
+            const m10 = m[4], m11 = m[5], m12 = m[6], m13 = m[7];
+            const m20 = m[8], m21 = m[9], m22 = m[10], m23 = m[11];
+            const m30 = m[12], m31 = m[13], m32 = m[14], m33 = m[15];
 
-            // Handle translation part for view matrices (camera world matrix)
-            // If it's an affine transformation (like a view matrix inverse)
-            if (m[0][3] === 0 && m[1][3] === 0 && m[2][3] === 0 && m[3][3] === 1) {
-                 result[3][0] = -(m[3][0]*result[0][0] + m[3][1]*result[1][0] + m[3][2]*result[2][0]);
-                 result[3][1] = -(m[3][0]*result[0][1] + m[3][1]*result[1][1] + m[3][2]*result[2][1]);
-                 result[3][2] = -(m[3][0]*result[0][2] + m[3][1]*result[1][2] + m[3][2]*result[2][2]);
-                 result[3][3] = 1;
-            } else { // Basic inverse for projection-like (very simplified, not general)
-                result[3][3] = 1.0 / m[3][3];
-                result[0][3] = -m[0][3] * result[3][3];
-                result[1][3] = -m[1][3] * result[3][3];
-                result[2][3] = -m[2][3] * result[3][3];
+            const b00 = m00 * m11 - m01 * m10;
+            const b01 = m00 * m12 - m02 * m10;
+            const b02 = m00 * m13 - m03 * m10;
+            const b03 = m01 * m12 - m02 * m11;
+            const b04 = m01 * m13 - m03 * m11;
+            const b05 = m02 * m13 - m03 * m12;
+            const b06 = m20 * m31 - m21 * m30;
+            const b07 = m20 * m32 - m22 * m30;
+            const b08 = m20 * m33 - m23 * m30;
+            const b09 = m21 * m32 - m22 * m31;
+            const b10 = m21 * m33 - m23 * m31;
+            const b11 = m22 * m33 - m23 * m32;
+
+            let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+            if (!det) {
+                console.warn("invertMatrix: Matrix is not invertible (determinant is zero). Returning identity.");
+                out.set([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+                return out;
             }
-            //This is still a very simplified placeholder for general matrix inversion
-            if (m[2][3] === -1 && m[3][3] === 0) { // Looks like a projection matrix
-                const a = m[0][0], b = m[1][1], c = m[2][2], d = m[3][2], e = m[2][3]; // e is -1
-                result = [
-                    [1/a, 0, 0, 0],
-                    [0, 1/b, 0, 0],
-                    [0, 0, 0, 1/d],
-                    [0, 0, 1/e, -c/(d*e)]
-                ];
-            }
-            return result;
+            det = 1.0 / det;
+
+            out[0] = (m11 * b11 - m12 * b10 + m13 * b09) * det;
+            out[1] = (m02 * b10 - m01 * b11 - m03 * b09) * det;
+            out[2] = (m31 * b05 - m32 * b04 + m33 * b03) * det;
+            out[3] = (m22 * b04 - m21 * b05 - m23 * b03) * det;
+            out[4] = (m12 * b08 - m10 * b11 - m13 * b07) * det;
+            out[5] = (m00 * b11 - m02 * b08 + m03 * b07) * det;
+            out[6] = (m32 * b02 - m30 * b05 - m33 * b01) * det;
+            out[7] = (m20 * b05 - m22 * b02 + m23 * b01) * det;
+            out[8] = (m10 * b10 - m11 * b08 + m13 * b06) * det;
+            out[9] = (m01 * b08 - m00 * b10 - m03 * b06) * det;
+            out[10] = (m30 * b04 - m31 * b02 + m33 * b00) * det;
+            out[11] = (m21 * b02 - m20 * b04 - m23 * b00) * det;
+            out[12] = (m11 * b07 - m10 * b09 - m12 * b06) * det;
+            out[13] = (m00 * b09 - m01 * b07 + m02 * b06) * det;
+            out[14] = (m31 * b01 - m30 * b03 - m32 * b00) * det;
+            out[15] = (m20 * b03 - m21 * b01 + m22 * b00) * det;
+
+            return out;
         }
 
+        // Multiplies a 4D vector by a 4x4 matrix (Float32Array, column-major).
         function multiplyVectorByMatrix(matrix, vector) {
-            // console.warn("multiplyVectorByMatrix: Using Placeholder");
-            const [x, y, z, w] = vector;
-            let result = [0,0,0,0];
-            for(let i=0; i<4; ++i){
-                result[i] = matrix[0][i] * x + matrix[1][i] * y + matrix[2][i] * z + matrix[3][i] * w;
-            }
-            return result;
+            const [x, y, z, w] = vector; // vector is an Array[4]
+            const out = [0,0,0,0];
+
+            // Matrix is column-major:
+            // m[0] m[4] m[8]  m[12]
+            // m[1] m[5] m[9]  m[13]
+            // m[2] m[6] m[10] m[14]
+            // m[3] m[7] m[11] m[15]
+            out[0] = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12] * w;
+            out[1] = matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13] * w;
+            out[2] = matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14] * w;
+            out[3] = matrix[3] * x + matrix[7] * y + matrix[11] * z + matrix[15] * w;
+
+            return out;
         }
 
+        // Normalizes a vector (Array of 3 or 4 elements). Only considers XYZ for length.
         function normalizeVector(vec) {
-            let len = Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
-            if (len > 0.00001) { // Avoid division by zero
-                return [vec[0]/len, vec[1]/len, vec[2]/len];
+            const x = vec[0], y = vec[1], z = vec[2];
+            let len = Math.sqrt(x*x + y*y + z*z);
+            if (len > 0.00001) {
+                len = 1.0 / len;
+                const out = [x*len, y*len, z*len];
+                if (vec.length > 3) out.push(vec[3]); // Preserve W if it exists
+                return out;
             }
-            return [0,0,0]; // Or handle as an error
+            const out = [0,0,0];
+            if (vec.length > 3) out.push(vec[3]); // Preserve W
+            // console.warn("normalizeVector: vector length is zero.");
+            return out;
         }
 
         // --- Vector Math Helper Functions ---
@@ -3440,44 +3656,64 @@
 
             console.log("NDC Coords: ", ndcX, ndcY);
 
-            // 1. Get Projection and View Matrices (using camera object)
-            // Ensure camera.aspect is up-to-date
+            // Ensure camera vectors and aspect ratio are up-to-date
+            calculateCameraVectors(); // Updates camera.forward, camera.up, camera.right
             camera.aspect = canvas.clientWidth / canvas.clientHeight;
-            const projMatrix = getProjectionMatrix(camera);
-            const viewMatrix = getViewMatrix(camera); // This is effectively the inverse of camera's world matrix
+
+            // 1. Get Projection and View Matrices
+            const projectionMatrix = getProjectionMatrix(camera.fovy, camera.aspect, camera.near, camera.far);
+            const viewMatrix = getViewMatrix(camera.position, camera.forward, camera.up);
 
             // 2. Get Inverse Projection and Inverse View Matrices
-            const invProjMatrix = invertMatrix(projMatrix);
-            const invViewMatrix = invertMatrix(viewMatrix); // This should be camera's world matrix
+            const invProjectionMatrix = invertMatrix(projectionMatrix);
+            if (!invProjectionMatrix || invProjectionMatrix[0] === undefined ) { // Basic check if inversion failed (e.g. returned identity on error)
+                console.error("Failed to invert projection matrix. Aborting ray generation.");
+                return;
+            }
+            const invViewMatrix = invertMatrix(viewMatrix);
+             if (!invViewMatrix || invViewMatrix[0] === undefined) {
+                console.error("Failed to invert view matrix. Aborting ray generation.");
+                return;
+            }
 
-            // 3. Unproject NDC to View Space (near plane)
-            let nearPointNDC = [ndcX, ndcY, -1, 1.0]; // Z = -1 for near plane in typical NDC
-            let nearPointCamera = multiplyVectorByMatrix(invProjMatrix, nearPointNDC);
-            if (nearPointCamera[3] !== 0) { // Perspective divide
+            // 3. Unproject NDC to View Space
+            // For WebGPU NDC Z is [0, 1], so near plane is at Z = 0.
+            const nearPointNDC = [ndcX, ndcY, 0.0, 1.0];
+
+            let nearPointCamera = multiplyVectorByMatrix(invProjectionMatrix, nearPointNDC);
+
+            // Perform perspective divide
+            if (nearPointCamera[3] !== 0) {
                 nearPointCamera[0] /= nearPointCamera[3];
                 nearPointCamera[1] /= nearPointCamera[3];
                 nearPointCamera[2] /= nearPointCamera[3];
+                // nearPointCamera[3] = 1.0; // After division, W is 1
+            } else {
+                console.error("Ray generation: W component is zero after invProjectionMatrix multiplication. Cannot perform perspective divide.");
+                return;
             }
 
             // 4. Unproject View Space to World Space
-            // Ray origin is camera position
-            const rayOrigin = [...camera.position];
+            const pointToTransformToWorld = [nearPointCamera[0], nearPointCamera[1], nearPointCamera[2], 1.0];
+            const nearPointWorld = multiplyVectorByMatrix(invViewMatrix, pointToTransformToWorld);
+            // nearPointWorld is now a 4-component vector [x,y,z,w]. For a point, w should be 1.
 
-            // Transform nearPointCamera (now a point in camera space) to world space
-            let nearPointWorld = multiplyVectorByMatrix(invViewMatrix, [nearPointCamera[0], nearPointCamera[1], nearPointCamera[2], 1.0]);
+            // Ray origin is the camera's position in world space.
+            const worldRayOrigin = [...camera.position];
 
-            // Calculate ray direction
-            const rayDirection = normalizeVector([
-                nearPointWorld[0] - rayOrigin[0],
-                nearPointWorld[1] - rayOrigin[1],
-                nearPointWorld[2] - rayOrigin[2]
-            ]);
+            // Calculate world space direction vector
+            // Direction = normalize(nearPointWorld_xyz - cameraPosition_xyz)
+            const rayDirWorldUnnormalized = subtractVectors( // subtractVectors works for 3D
+                [nearPointWorld[0], nearPointWorld[1], nearPointWorld[2]],
+                worldRayOrigin
+            );
+            const finalRayDirection = normalizeVector3D(rayDirWorldUnnormalized);
 
-            lastClickedRay.origin = rayOrigin;
-            lastClickedRay.direction = rayDirection;
+            lastClickedRay.origin = worldRayOrigin;
+            lastClickedRay.direction = finalRayDirection;
 
-            console.log("Clicked Ray Origin:", rayOrigin);
-            console.log("Clicked Ray Direction:", rayDirection);
+            console.log("Clicked Ray Origin (World):", worldRayOrigin);
+            console.log("Clicked Ray Direction (World):", finalRayDirection);
 
             const intersectionResult = intersectRayWithSpheres(lastClickedRay.origin, lastClickedRay.direction);
             let needsGPUUpdate = false;
