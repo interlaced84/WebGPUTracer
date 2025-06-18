@@ -2015,26 +2015,27 @@
 
                 // Combines all scene SDFs to find the closest object
                 fn sceneSDF(p: vec3<f32>, current_time: f32, warp_strength: f32, object_id: ptr<function, u32>) -> f32 {
-                    /*
-                    var min_dist: f32 = MAX_DIST;
-                    *object_id = 999u; // Default no hit
+                    var min_dist: f32 = MAX_DIST; // MAX_DIST should be a large defined constant e.g. 1000.0f
+                    *object_id = 999u; // Default to a 'no hit' ID
 
-                    // Only test spheres[1] if available
+                    // Only test spheres[1] if available (raytracerUBO.numPrimitives should be 2 from JS setup)
                     if (raytracerUBO.numPrimitives > 1u) {
-                        let test_sphere_idx = 1u; // spheres[1] is our target red sphere
+                        let test_sphere_idx = 1u;
+                        // Ensure spheres is correctly typed, e.g. var<storage, read> spheres: array<Sphere>;
+                        // Ensure Sphere struct and raytracerUBO are defined and accessible.
                         let s = spheres[test_sphere_idx];
-                        let sphere_dist = sdSphere(p, s, warp_strength); // Use existing sdSphere
+
+                        // Restore the actual sdSphere call.
+                        // Ensure sdSphere function is correctly defined and available.
+                        // warp_strength comes from raytracerUBO.warpStrength, which is 0.0f
+                        let sphere_dist = sdSphere(p, s, raytracerUBO.warpStrength);
 
                         if (sphere_dist < min_dist) {
                             min_dist = sphere_dist;
-                            // object_id for spheres[1] should be 1 (sphere_idx) + 2u = 3u.
-                            *object_id = test_sphere_idx + 2u;
+                            *object_id = test_sphere_idx + 2u; // object_id for spheres[1] will be 3u
                         }
                     }
                     return min_dist;
-                    */
-                    *object_id = 3u; // Object ID for spheres[1] (1u + 2u)
-                    return 0.0f;    // Return 0.0f. Since MIN_DIST is 0.0001f, 0.0f < MIN_DIST will be true.
                 }
 
                 // Estimates the normal at a point using the SDF (finite difference)
