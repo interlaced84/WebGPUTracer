@@ -2540,49 +2540,64 @@
 
                 @compute @workgroup_size(8, 8)
                 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-                    // cameraUBO is from @group(0) @binding(0)
-                    // outputTexture is from @group(0) @binding(6)
-                    // raytracerUBO is from @group(0) @binding(2)
-                    // spheres is from @group(1) @binding(0)
-
+                    // Ensure cameraUBO, outputTexture, raytracerUBO, timeUBO, lightUBO (for sky) are accessible
                     let screen_width_float = cameraUBO.resolution.x;
                     let screen_height_float = cameraUBO.resolution.y;
 
-                    // Bounds check to prevent writing outside the texture
                     if (global_id.x >= u32(screen_width_float) || global_id.y >= u32(screen_height_float)) {
                         return;
                     }
 
-                    var out_color = vec3<f32>(0.2f, 0.2f, 0.2f); // Default to a dim gray
+                    // Ray Generation logic (as previously established)
+                    let ndc_x = (f32(global_id.x) / screen_width_float) * 2.0f - 1.0f;
+                    let ndc_y = (1.0f - f32(global_id.y) / screen_height_float) * 2.0f - 1.0f; // Invert Y
+                    let aspect_ratio = cameraUBO.aspect;
+                    let fov_rad = cameraUBO.fovy;
+                    let ray_x_cam = ndc_x * aspect_ratio * tan(fov_rad / 2.0f);
+                    let ray_y_cam = ndc_y * tan(fov_rad / 2.0f);
+                    let ray_z_cam = -1.0f;
+                    let ray_dir_camera_space = normalize(vec3<f32>(ray_x_cam, ray_y_cam, ray_z_cam));
+                    let ideal_ray_direction_world = normalize(
+                        ray_dir_camera_space.x * cameraUBO.right.xyz +
+                        ray_dir_camera_space.y * cameraUBO.up.xyz +
+                        ray_dir_camera_space.z * cameraUBO.forward.xyz
+                    );
+                    let initial_ray = Ray(cameraUBO.position.xyz, ideal_ray_direction_world);
+
+                    // ---- START NEW DEBUG LOGIC ----
+                    var debug_color = vec3<f32>(0.1f, 0.1f, 0.1f); // Default to a dim gray if something is off
 
                     if (raytracerUBO.numPrimitives > 1u) { // Check if spheres[1] can exist
-                        // Read directly from spheres[1]
-                        // spheres[1].position_radius is vec4<f32>(pos_x, pos_y, pos_z, radius)
-                        let sphere_data = spheres[1].position_radius;
+                        let s1 = spheres[1]; // Read data for spheres[1]
 
-                        let s1_pos_x = sphere_data.x;  // Expected 0.0 from JS for spheres[1]
-                        let s1_pos_y = sphere_data.y;  // Expected 1.0 from JS for spheres[1]
-                        let s1_radius = sphere_data.w; // Expected 1.0 from JS for spheres[1]
+                        let s1_radius = s1.position_radius.w;
+                        let s1_pos_y = s1.position_radius.y;
+                        let s1_pos_x = s1.position_radius.x; // Also read x for blue channel
 
-                        // Visualize these values.
-                        // Example: Radius (1.0) -> Red channel (scaled)
-                        //          Pos Y (1.0) -> Green channel (scaled)
-                        //          Pos X (0.0) -> Blue channel (scaled)
-                        // Normalize carefully to ensure values are visible in 0.0-1.0 range.
-                        // If radius is 1.0, r_comp = 0.5.
-                        // If pos_y is 1.0, g_comp = (1.0 / 10.0) + 0.5 = 0.6.
-                        // If pos_x is 0.0, b_comp = (0.0 / 10.0) + 0.5 = 0.5.
-                        // Expected color approx (0.5, 0.6, 0.5)
-                        out_color.r = clamp(s1_radius * 0.5f, 0.0f, 1.0f);                  // Scale radius (0 to 2 maps to 0 to 1 Red)
-                        out_color.g = clamp((s1_pos_y / 10.0f) + 0.5f, 0.0f, 1.0f);         // Scale pos_y (-5 to 5 maps to 0 to 1 Green)
-                        out_color.b = clamp((s1_pos_x / 10.0f) + 0.5f, 0.0f, 1.0f);         // Scale pos_x (-5 to 5 maps to 0 to 1 Blue)
+                        // Define a test point 'p_test' along the ray.
+                        // Assuming camera at z=10, sphere at z=0, radius 1.
+                        // A point at distance 9.0f along a ray aimed at origin should be on/near sphere surface.
+                        let p_test = initial_ray.origin + initial_ray.direction * 9.0f;
+
+                        // Call sdSphere directly with this test point and spheres[1] data.
+                        // Pass 0.0f for warpStrength as it's disabled in JS for tests.
+                        let dist_val = sdSphere(p_test, s1, 0.0f);
+
+                        // Visualize:
+                        // R = radius (e.g., 1.0 -> 0.5 red)
+                        // G = sdSphere result (e.g., 0.0 -> 0.5 green, positive -> >0.5, negative -> <0.5)
+                        // B = sphere's y position (e.g., 1.0 -> 0.6 blue)
+                        debug_color.r = clamp(s1_radius * 0.5f, 0.0f, 1.0f);                  // Scale radius (0 to 2 maps to 0 to 1 Red)
+                        debug_color.g = clamp((dist_val / 2.0f) + 0.5f, 0.0f, 1.0f); // Maps approx -1 to 1 dist_val to 0 to 1 Green
+                        debug_color.b = clamp((s1_pos_y / 10.0f) + 0.5f, 0.0f, 1.0f);         // Maps approx -5 to 5 pos_y to 0 to 1 Blue
 
                     } else {
                         // If raytracerUBO.numPrimitives <= 1, output magenta to indicate spheres[1] wasn't accessed.
-                        out_color = vec3<f32>(1.0f, 0.0f, 1.0f);
+                        debug_color = vec3<f32>(1.0f, 0.0f, 1.0f);
                     }
 
-                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(out_color, 1.0f));
+                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(debug_color, 1.0f));
+                    // ---- END NEW DEBUG LOGIC ----
                 }
                 `; 
 
