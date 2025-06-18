@@ -1318,26 +1318,30 @@
             loadingStatusP.textContent = `Updating BVH nodes (${bvhData.bvhNodes.length} nodes)...`;
 
             // BVHNode struct in WGSL: minBounds (vec3), isLeaf (u32), maxBounds (vec3), primitiveCount (u32), leftChildOrFirstPrimitiveIndex (u32), _padding (vec3<u32>)
-            // Total 12 floats per node (12 * 4 bytes = 48 bytes)
-            const BVH_NODE_FLOAT_COUNT = 12; 
+            // Original WGSL struct is 48 bytes (12 floats). JS buffer stride is now 64 bytes (16 floats) for alignment.
+            const BVH_NODE_FLOAT_COUNT = 16; // 16 floats = 64 bytes per node
             const bvhNodesFlat = new Float32Array(bvhData.bvhNodes.length * BVH_NODE_FLOAT_COUNT);
 
             bvhData.bvhNodes.forEach((node, i) => {
                 let offset = i * BVH_NODE_FLOAT_COUNT;
+                // Existing data for the 48-byte WGSL struct
                 bvhNodesFlat[offset + 0] = node.minBounds[0]; 
                 bvhNodesFlat[offset + 1] = node.minBounds[1]; 
                 bvhNodesFlat[offset + 2] = node.minBounds[2]; 
-                bvhNodesFlat[offset + 3] = node.isLeaf; // Stored as float for Float32Array, will be cast to u32 in shader
+                bvhNodesFlat[offset + 3] = node.isLeaf; // u32 (stored as float)
 
                 bvhNodesFlat[offset + 4] = node.maxBounds[0]; 
                 bvhNodesFlat[offset + 5] = node.maxBounds[1]; 
                 bvhNodesFlat[offset + 6] = node.maxBounds[2]; 
-                bvhNodesFlat[offset + 7] = node.primitiveCount; // Stored as float
+                bvhNodesFlat[offset + 7] = node.primitiveCount; // u32 (stored as float)
 
-                bvhNodesFlat[offset + 8] = node.leftChildOrFirstPrimitiveIndex; // Stored as float
-                bvhNodesFlat[offset + 9] = 0; // Padding
-                bvhNodesFlat[offset + 10] = 0; // Padding
-                bvhNodesFlat[offset + 11] = 0; // Padding
+                bvhNodesFlat[offset + 8] = node.leftChildOrFirstPrimitiveIndex; // u32 (stored as float)
+                // bvhNodesFlat[offset + 9] = 0; // WGSL _padding.x (u32), default 0 from new Float32Array
+                // bvhNodesFlat[offset + 10] = 0; // WGSL _padding.y (u32), default 0
+                // bvhNodesFlat[offset + 11] = 0; // WGSL _padding.z (u32), default 0
+
+                // Elements from offset + 12 to offset + 15 are additional padding to reach 64 bytes.
+                // They are implicitly 0.0f due to new Float32Array(size) initialization.
             });
 
             loadingStatusP.textContent = `Updating primitive indices (${bvhData.primitiveIndices.length} indices)...`;
