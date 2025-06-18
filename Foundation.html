@@ -2015,6 +2015,7 @@
 
                 // Combines all scene SDFs to find the closest object
                 fn sceneSDF(p: vec3<f32>, current_time: f32, warp_strength: f32, object_id: ptr<function, u32>) -> f32 {
+                    /*
                     var min_dist: f32 = MAX_DIST;
                     *object_id = 999u; // Default no hit
 
@@ -2031,6 +2032,9 @@
                         }
                     }
                     return min_dist;
+                    */
+                    *object_id = 3u; // Object ID for spheres[1] (1u + 2u)
+                    return 0.1f;    // Return a small, positive distance
                 }
 
                 // Estimates the normal at a point using the SDF (finite difference)
