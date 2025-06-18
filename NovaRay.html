@@ -43,7 +43,7 @@
             display: flex;
             opacity: 1;
         }
-        
+
         /* Specific view layouts */
         #menu-view {
             flex-direction: column;
@@ -67,7 +67,7 @@
             z-index: 15; /* Highest z-index to overlay everything during loading */
             text-align: center;
         }
-        
+
         /* Canvas */
         canvas {
             display: block;
@@ -111,7 +111,7 @@
             cursor: pointer;
             box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.4);
         }
-        
+
         /* Specific UI element styling */
         #menu-view h1 {
             font-size: 3em;
@@ -148,7 +148,7 @@
         #settings-panel select {
             @apply w-full p-3 rounded-md bg-gray-700 text-gray-200 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500;
         }
-        
+
         /* Loading view specific styles */
         #loading-view .spinner {
             animation: spin 1s linear infinite;
@@ -673,7 +673,7 @@ const bvhWorkerScript = `
                         minCostSplitBucket = i;
                     }
                 }
-                
+
                 // Partition primitives based on the best split
                 const pmid = primitiveInfos.slice(start, end).sort((a, b) => a.centroid[dim] - b.centroid[dim]);
                 primitiveInfos.splice(start, nPrimitives, ...pmid);
@@ -697,7 +697,7 @@ const bvhWorkerScript = `
                     primitiveInfos.splice(start, nPrimitives, ...pmidFallback);
                 }
             }
-            
+
             node.leftChildOrFirstPrimitiveIndex = flattenedNodes.length; // Left child will be next in the array
             buildBvhRecursive(primitives, primitiveInfos, start, mid, totalPrimitives, flattenedNodes, orderedPrimitiveIndices);
             buildBvhRecursive(primitives, primitiveInfos, mid, end, totalPrimitives, flattenedNodes, orderedPrimitiveIndices);
@@ -892,13 +892,13 @@ const bvhWorkerScript = `
              */
             async initialize(canvasElement, loadingStatusElement, errorDisplayElement) {
                 this.canvas = canvasElement;
-                
+
                 this.uiManager = new UIManager(this);
                 this.uiManager.initDOMElements(); // UIManager caches its DOM elements early
                 // Pass along the specific elements for early feedback during engine init
                 this.uiManager.loadingStatusP = loadingStatusElement;
                 this.uiManager.errorMessageDisplay = errorDisplayElement;
-                
+
                 this.uiManager.setLoadingStatus("Initializing NovaRay Engine...");
 
                 try {
@@ -909,7 +909,7 @@ const bvhWorkerScript = `
                         console.log("Previous device destroyed.");
                         this.device = null;
                     }
-                
+
                     this.uiManager.setLoadingStatus("Checking WebGPU support...");
                     if (!navigator.gpu) {
                         throw new Error("WebGPU not supported in your browser.");
@@ -1084,12 +1084,12 @@ const bvhWorkerScript = `
                 fn hash_grad(x: u32, y: u32, z: u32) -> u32 {
                     return perm[ (perm[ (perm[x % 256u] + y) % 256u ] + z) % 256u ];
                 }
-                
+
                 // Classic Perlin Noise 3D
                 fn snoise(p: vec3<f32>) -> f32 {
                     let F3 = 1.0f/3.0f;
                     let G3 = 1.0f/6.0f;
-                    
+
                     let s = (p.x + p.y + p.z) * F3;
                     let i_float = floor(p + vec3<f32>(s, s, s));
                     let t = (i_float.x + i_float.y + i_float.z) * G3;
@@ -1173,7 +1173,7 @@ const bvhWorkerScript = `
                     maxBounds: vec3<f32>, primitiveCount: u32,
                     leftChildOrFirstPrimitiveIndex: u32, _padding: vec3<u32>,
                 };
-                
+
                 struct WaterParams {
                     strength: f32, frequency: f32, speed: f32, _padding: f32,
                 };
@@ -1185,19 +1185,19 @@ const bvhWorkerScript = `
                 };
 
                 struct RaytracerParams {
-                    maxBounces: u32, 
-                    maxRaymarchSteps: u32, 
-                    shadowSamples: u32, 
+                    maxBounces: u32,
+                    maxRaymarchSteps: u32,
+                    shadowSamples: u32,
                     dofSamples: u32,
 
-                    numBVHNodes: u32,   
-                    numPrimitives: u32, 
-                    skyPreset: u32,     
+                    numBVHNodes: u32,
+                    numPrimitives: u32,
+                    skyPreset: u32,
                     _padding0: u32,
 
-                    warpStrength: f32,  
-                    focalDistance: f32, 
-                    apertureSize: f32,  
+                    warpStrength: f32,
+                    focalDistance: f32,
+                    apertureSize: f32,
                     _padding1: f32,
                 };
 
@@ -1214,9 +1214,9 @@ const bvhWorkerScript = `
                 @group(0) @binding(6) var outputTexture: texture_storage_2d<rgba32float, write>;
                 @group(0) @binding(7) var inputTexture: texture_2d<f32>;
 
-                @group(1) @binding(0) var<storage, read> spheres: array<Sphere>; 
-                @group(1) @binding(1) var<storage, read> bvhNodes: array<BvhNode>; 
-                @group(1) @binding(2) var<storage, read> primitiveIndices: array<u32>; 
+                @group(1) @binding(0) var<storage, read> spheres: array<Sphere>;
+                @group(1) @binding(1) var<storage, read> bvhNodes: array<BvhNode>;
+                @group(1) @binding(2) var<storage, read> primitiveIndices: array<u32>;
 
                 const MIN_DIST: f32 = 0.0001f;
                 const MAX_DIST: f32 = 1000.0f;
@@ -1273,11 +1273,11 @@ const bvhWorkerScript = `
                     var h: f32 = 0.0f;
                     let initial_freq = waterUBO.frequency;
                     let initial_strength = waterUBO.strength;
-                    
+
                     h += sin(x * initial_freq + time * waterUBO.speed) * initial_strength * 0.7f;
                     h += cos(z * initial_freq * 1.5f + time * waterUBO.speed * 0.8f) * initial_strength * 0.5f;
                     h += sin((x + z) * initial_freq * 0.8f + time * waterUBO.speed * 1.2f) * initial_strength * 0.3f;
-                    
+
                     return h;
                 }
 
@@ -1307,11 +1307,11 @@ const bvhWorkerScript = `
                     return max(0.0f, t_enter);
                 }
 
-                fn bvh_scene_sdf_spheres(ray_origin: vec3<f32>, ray_direction: vec3<f32>, 
-                                         current_time: f32, warp_strength: f32, 
+                fn bvh_scene_sdf_spheres(ray_origin: vec3<f32>, ray_direction: vec3<f32>,
+                                         current_time: f32, warp_strength: f32,
                                          closest_dist: ptr<function, f32>, closest_sphere_idx: ptr<function, u32>) {
-                    
-                    if (raytracerUBO.numPrimitives == 0u || raytracerUBO.numBVHNodes == 0u) { return; } 
+
+                    if (raytracerUBO.numPrimitives == 0u || raytracerUBO.numBVHNodes == 0u) { return; }
 
                     var inv_dir = 1.0f / ray_direction;
                     var node_stack: array<u32, STACK_SIZE>;
@@ -1325,7 +1325,7 @@ const bvhWorkerScript = `
                         let node = bvhNodes[current_node_idx];
                         let t = intersect_aabb(ray_origin, inv_dir, node.minBounds, node.maxBounds);
 
-                        if (t == -1.0f || t > *closest_dist) { 
+                        if (t == -1.0f || t > *closest_dist) {
                             if (stack_ptr == 0u) { break; }
                             stack_ptr = stack_ptr - 1u;
                             current_node_idx = node_stack[stack_ptr];
@@ -1350,7 +1350,7 @@ const bvhWorkerScript = `
                             let left_child_idx = node.leftChildOrFirstPrimitiveIndex;
                             let right_child_idx = node.leftChildOrFirstPrimitiveIndex + 1u;
 
-                            if (left_child_idx >= raytracerUBO.numBVHNodes || right_child_idx >= raytracerUBO.numBVHNodes) { 
+                            if (left_child_idx >= raytracerUBO.numBVHNodes || right_child_idx >= raytracerUBO.numBVHNodes) {
                                 if (stack_ptr == 0u) { break; }
                                 stack_ptr = stack_ptr - 1u;
                                 current_node_idx = node_stack[stack_ptr];
@@ -1360,15 +1360,15 @@ const bvhWorkerScript = `
                             let t_left = intersect_aabb(ray_origin, inv_dir, bvhNodes[left_child_idx].minBounds, bvhNodes[left_child_idx].maxBounds);
                             let t_right = intersect_aabb(ray_origin, inv_dir, bvhNodes[right_child_idx].minBounds, bvhNodes[right_child_idx].maxBounds);
 
-                            if (t_left != -1.0f && t_right != -1.0f) { 
+                            if (t_left != -1.0f && t_right != -1.0f) {
                                 if (t_left < t_right) {
-                                    node_stack[stack_ptr] = right_child_idx; 
+                                    node_stack[stack_ptr] = right_child_idx;
                                     stack_ptr = stack_ptr + 1u;
-                                    current_node_idx = left_child_idx; 
+                                    current_node_idx = left_child_idx;
                                 } else {
-                                    node_stack[stack_ptr] = left_child_idx; 
+                                    node_stack[stack_ptr] = left_child_idx;
                                     stack_ptr = stack_ptr + 1u;
-                                    current_node_idx = right_child_idx; 
+                                    current_node_idx = right_child_idx;
                                 }
                             } else if (t_left != -1.0f) {
                                 current_node_idx = left_child_idx;
@@ -1377,7 +1377,7 @@ const bvhWorkerScript = `
                             } else {
                                 if (stack_ptr == 0u) { break; }
                                 stack_ptr = stack_ptr - 1u;
-                                current_node_idx = node_stack[stack_ptr]; 
+                                current_node_idx = node_stack[stack_ptr];
                             }
                         }
                     }
@@ -1398,7 +1398,7 @@ const bvhWorkerScript = `
                         min_dist = water_dist;
                         *object_id = 1u;
                     }
-                    
+
                     var closest_sphere_dist = MAX_DIST;
                     var closest_sphere_original_idx: u32 = 0u;
                     bvh_scene_sdf_spheres(p, vec3<f32>(0.0f, 0.0f, 0.0f), current_time, warp_strength, &closest_sphere_dist, &closest_sphere_original_idx);
@@ -1492,7 +1492,7 @@ const bvhWorkerScript = `
                     let sun_dir = normalize(lightUBO.position.xyz);
                     let sun_dot = dot(ray_dir, sun_dir);
                     let sun_intensity = smoothstep(0.99f, 1.0f, sun_dot);
-                    let sun_color_base = lightUBO.color * sun_intensity * lightUBO.brightness; 
+                    let sun_color_base = lightUBO.color * sun_intensity * lightUBO.brightness;
 
                     var sky_color_top: vec3<f32>;
                     var sky_color_horizon: vec3<f32>;
@@ -1511,11 +1511,11 @@ const bvhWorkerScript = `
                     let cloud_coverage: f32 = 0.5f;
                     let cloud_density: f32 = 0.8f;
                     let cloud_detail: f32 = 0.1f;
-                    
+
                     let cloud_uv = ray_dir.xz * 10.0f;
                     let cloud_noise = snoise(vec3<f32>(cloud_uv.x, ray_dir.y * 5.0f, cloud_uv.y + timeUBO.time * 0.05f));
                     let clouds = smoothstep(cloud_coverage - cloud_detail, cloud_coverage + cloud_detail, cloud_noise) * cloud_density;
-                    
+
                     let final_sky_color = mix(gradient_color, vec3<f32>(0.9f, 0.9f, 0.9f), clouds);
                     return final_sky_color + sun_color_base;
                 }
@@ -1552,19 +1552,19 @@ const bvhWorkerScript = `
                 }
 
                 fn calculateLighting(hit_pos: vec3<f32>, N: vec3<f32>, V: vec3<f32>, current_time: f32,
-                                     albedo: vec3<f32>, metallic: f32, roughness: f32, base_reflectivity: f32, 
-                                     is_in_water_medium_flag: u32, global_id_xy: vec2<u32>) -> vec3<f32> { 
-                    
+                                     albedo: vec3<f32>, metallic: f32, roughness: f32, base_reflectivity: f32,
+                                     is_in_water_medium_flag: u32, global_id_xy: vec2<u32>) -> vec3<f32> {
+
                     var Lo = vec3<f32>(0.0f);
                     var ambient_color = albedo * 0.02f;
                     if (is_in_water_medium_flag == 1u) { ambient_color = albedo * 0.04f; }
 
-                    let F0 = mix(vec3<f32>(base_reflectivity), albedo, metallic); 
+                    let F0 = mix(vec3<f32>(base_reflectivity), albedo, metallic);
 
                     let num_shadow_samples = max(1u, raytracerUBO.shadowSamples);
                     let light_center_dir = normalize(lightUBO.position.xyz - hit_pos);
                     let light_to_hit_dist = distance(lightUBO.position.xyz, hit_pos);
-                    
+
                     var light_basis_u = normalize(cross(light_center_dir, vec3<f32>(0.0f, 1.0f, 0.0f)));
                     if (length(light_basis_u) < 0.1f) {
                         light_basis_u = normalize(cross(light_center_dir, vec3<f32>(1.0f, 0.0f, 0.0f)));
@@ -1574,7 +1574,7 @@ const bvhWorkerScript = `
                     for (var s_idx: u32 = 0u; s_idx < num_shadow_samples; s_idx = s_idx + 1u) {
                         let rand_u_val = rand_float(vec2<f32>(f32(global_id_xy.x), f32(global_id_xy.y)), timeUBO.time * 1.3f + f32(s_idx) * 7.7f);
                         let rand_v_val = rand_float(vec2<f32>(f32(global_id_xy.y), f32(global_id_xy.x)), timeUBO.time * 0.7f + f32(s_idx) * 11.3f);
-                        
+
                         let angle = rand_u_val * 2.0f * PI;
                         let radius_scale = sqrt(rand_v_val);
                         let offset_x = cos(angle) * radius_scale * lightUBO.size;
@@ -1584,10 +1584,10 @@ const bvhWorkerScript = `
                         let L = normalize(perturbed_light_pos - hit_pos);
 
                         let shadow_ray_origin = hit_pos + N * MIN_DIST;
-                        let occluder_dist = raymarch(Ray(shadow_ray_origin, L), current_time, raytracerUBO.warpStrength).distance; 
+                        let occluder_dist = raymarch(Ray(shadow_ray_origin, L), current_time, raytracerUBO.warpStrength).distance;
 
                         let shadow_factor = select(0.0f, 1.0f, occluder_dist >= light_to_hit_dist - MIN_DIST);
-                        
+
                         if (shadow_factor > 0.0f) {
                             let H = normalize(V + L);
                             let NdotL = max(dot(N, L), 0.0f);
@@ -1597,18 +1597,18 @@ const bvhWorkerScript = `
 
                             let D = DistributionGGX(N, H, roughness);
                             let G = GeometrySmith(N, V, L, roughness);
-                            let F = FresnelSchlickPBR(VdotH, F0); 
+                            let F = FresnelSchlickPBR(VdotH, F0);
 
                             let numerator = D * G * F;
                             let denominator = 4.0f * NdotV * NdotL;
-                            let specular_brdf = numerator / max(denominator, 0.0000001f); 
+                            let specular_brdf = numerator / max(denominator, 0.0000001f);
 
-                            let kS = F; 
+                            let kS = F;
                             var kD = vec3<f32>(1.0f) - kS;
                             kD *= (1.0f - metallic);
 
                             let diffuse_brdf = kD * albedo / PI;
-                            let radiance = lightUBO.brightness * lightUBO.color; 
+                            let radiance = lightUBO.brightness * lightUBO.color;
                             Lo += (diffuse_brdf + specular_brdf) * radiance * NdotL * shadow_factor;
                         }
                     }
@@ -1618,13 +1618,13 @@ const bvhWorkerScript = `
 
                 fn snellsLaw(incident_dir: vec3<f32>, normal: vec3<f32>, n1: f32, n2: f32) -> vec3<f32> {
                     let cosThetaI = dot(-incident_dir, normal);
-                    let clamped_cosThetaI = clamp(cosThetaI, -1.0f, 1.0f); 
-                    
+                    let clamped_cosThetaI = clamp(cosThetaI, -1.0f, 1.0f);
+
                     let eta = n1 / n2;
                     let sinThetaT2 = eta * eta * (1.0f - clamped_cosThetaI * clamped_cosThetaI);
-                    
-                    if (sinThetaT2 > 1.0f) { return vec3<f32>(0.0f); } 
-                    
+
+                    if (sinThetaT2 > 1.0f) { return vec3<f32>(0.0f); }
+
                     let cosThetaT = sqrt(1.0f - sinThetaT2);
                     return eta * incident_dir + (eta * clamped_cosThetaI - cosThetaT) * normal;
                 }
@@ -1650,10 +1650,10 @@ const bvhWorkerScript = `
                 }
 
                 fn get_color_from_sub_hit(ray: Ray, current_time: f32, is_sub_ray_in_water_medium_flag: u32, global_id_xy: vec2<u32>) -> vec3<f32> {
-                    let hit_info = raymarch(ray, current_time, raytracerUBO.warpStrength); 
+                    let hit_info = raymarch(ray, current_time, raytracerUBO.warpStrength);
 
                     if (!hit_info.is_hit) {
-                        return getSkyColor(ray.direction, raytracerUBO.skyPreset); 
+                        return getSkyColor(ray.direction, raytracerUBO.skyPreset);
                     } else if (hit_info.object_id == 0u) {
                         let terrain_albedo = vec3<f32>(0.4f, 0.3f, 0.2f);
                         let terrain_metallic = 0.0f;
@@ -1664,7 +1664,7 @@ const bvhWorkerScript = `
                         let water_albedo = vec3<f32>(0.1f, 0.3f, 0.5f);
                         let water_metallic = 0.0f;
                         let water_roughness = 0.1f;
-                        let water_base_reflectivity = 0.04f; 
+                        let water_base_reflectivity = 0.04f;
                         return calculateLighting(hit_info.hit_pos, hit_info.normal, -ray.direction, current_time, water_albedo, water_metallic, water_roughness, water_base_reflectivity, is_sub_ray_in_water_medium_flag, global_id_xy);
                     } else {
                         let s = spheres[hit_info.sphere_idx];
@@ -1676,7 +1676,7 @@ const bvhWorkerScript = `
                     }
                 }
 
-                fn traceRay(initial_ray: Ray, current_time: f32, global_id_xy: vec2<u32>) -> vec4<f32> { 
+                fn traceRay(initial_ray: Ray, current_time: f32, global_id_xy: vec2<u32>) -> vec4<f32> {
                     var final_color = vec3<f32>(0.0f);
                     var current_ray = initial_ray;
                     var current_weight = vec3<f32>(1.0f);
@@ -1685,17 +1685,17 @@ const bvhWorkerScript = `
                     var is_in_water_medium_trace: u32 = 0u;
 
                     for (var bounce_count: u32 = 0u; bounce_count < raytracerUBO.maxBounces; bounce_count = bounce_count + 1u) {
-                        let hit_info = raymarch(current_ray, current_time, raytracerUBO.warpStrength); 
+                        let hit_info = raymarch(current_ray, current_time, raytracerUBO.warpStrength);
 
                         if (!hit_info.is_hit) {
-                            final_color += current_weight * getSkyColor(current_ray.direction, raytracerUBO.skyPreset); 
+                            final_color += current_weight * getSkyColor(current_ray.direction, raytracerUBO.skyPreset);
                             break;
                         }
 
                         let N = hit_info.normal;
                         let hit_pos = hit_info.hit_pos;
                         let V = -current_ray.direction;
-                        
+
                         is_in_water_medium_trace = select(0u, 1u, current_ior > 1.01f);
 
                         if (hit_info.object_id == 0u) {
@@ -1711,7 +1711,7 @@ const bvhWorkerScript = `
                             let water_body_color_absorption = vec3<f32>(0.1f, 0.2f, 0.3f);
                             let water_metallic = 0.0f;
                             let water_roughness = 0.1f;
-                            let water_base_reflectivity = 0.04f; 
+                            let water_base_reflectivity = 0.04f;
 
                             let iors_info = get_ior_and_normal(current_ray.direction, N, current_ior, water_ior);
                             let n1 = iors_info[0];
@@ -1723,7 +1723,7 @@ const bvhWorkerScript = `
 
                             let reflected_dir = reflect(current_ray.direction, adjusted_normal);
                             let reflected_ray = Ray(hit_pos + reflected_dir * EPSILON, reflected_dir);
-                            
+
                             let refracted_dir = snellsLaw(current_ray.direction, adjusted_normal, n1, n2);
                             let cos_theta_i = dot(-current_ray.direction, adjusted_normal);
                             let fresnel_reflectance = fresnelSchlick(cos_theta_i, n1, n2);
@@ -1763,7 +1763,7 @@ const bvhWorkerScript = `
                                 let n1 = iors_info[0];
                                 let n2 = iors_info[1];
                                 let adjusted_normal = vec3<f32>(iors_info[2], iors_info[3], iors_info[4]);
-                                
+
                                 let cos_theta_i = dot(-current_ray.direction, adjusted_normal);
                                 let fresnel_reflectance = fresnelSchlick(cos_theta_i, n1, n2);
                                 let reflected_dir = reflect(current_ray.direction, adjusted_normal);
@@ -1793,7 +1793,7 @@ const bvhWorkerScript = `
 
                 @compute @workgroup_size(8, 8)
                 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-                    let screen_width = cameraUBO.resolution.x; 
+                    let screen_width = cameraUBO.resolution.x;
                     let screen_height = cameraUBO.resolution.y;
 
                     if (global_id.x >= u32(screen_width) || global_id.y >= u32(screen_height)) {
@@ -1809,18 +1809,18 @@ const bvhWorkerScript = `
 
                         let angle_dof = rand_u_dof * 2.0f * PI;
                         let radius_scale = sqrt(rand_v_dof);
-                        let aperture_offset_x = cos(angle_dof) * radius_scale * raytracerUBO.apertureSize; 
+                        let aperture_offset_x = cos(angle_dof) * radius_scale * raytracerUBO.apertureSize;
                         let aperture_offset_y = sin(angle_dof) * radius_scale * raytracerUBO.apertureSize;
 
-                        let perturbed_origin = cameraUBO.position.xyz + 
-                                               cameraUBO.right.xyz * aperture_offset_x + 
+                        let perturbed_origin = cameraUBO.position.xyz +
+                                               cameraUBO.right.xyz * aperture_offset_x +
                                                cameraUBO.up.xyz * aperture_offset_y;
 
                         let ndc_x: f32 = (f32(global_id.x) / screen_width) * 2.0f - 1.0f;
                         let ndc_y: f32 = (1.0f - f32(global_id.y) / screen_height) * 2.0f - 1.0f;
 
-                        let aspect_ratio = cameraUBO.aspect; 
-                        let fov_rad = cameraUBO.fovy; 
+                        let aspect_ratio = cameraUBO.aspect;
+                        let fov_rad = cameraUBO.fovy;
 
                         let ray_x = ndc_x * aspect_ratio * tan(fov_rad / 2.0f);
                         let ray_y = ndc_y * tan(fov_rad / 2.0f);
@@ -1833,9 +1833,9 @@ const bvhWorkerScript = `
                             ray_dir_camera_space.y * cameraUBO.up.xyz +
                             ray_dir_camera_space.z * cameraUBO.forward.xyz
                         );
-                        
-                        let focal_point = cameraUBO.position.xyz + ideal_ray_direction_world * raytracerUBO.focalDistance; 
-                        
+
+                        let focal_point = cameraUBO.position.xyz + ideal_ray_direction_world * raytracerUBO.focalDistance;
+
                         let dof_ray_direction = normalize(focal_point - perturbed_origin);
                         let dof_ray = Ray(perturbed_origin, dof_ray_direction);
 
@@ -1846,9 +1846,9 @@ const bvhWorkerScript = `
 
                     let previous_color_vec4 = textureLoad(inputTexture, vec2<i32>(global_id.xy), 0u);
                     let current_frame_f32 = f32(timeUBO.frame_count);
-                    let blend_factor = 1.0f / (current_frame_f32 + 1.0f); 
+                    let blend_factor = 1.0f / (current_frame_f32 + 1.0f);
                     let new_accumulated_color = mix(previous_color_vec4.rgb, final_color_per_pixel, blend_factor);
-                    
+
                     textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(new_accumulated_color, 1.0f));
                 }
                 \`;
@@ -1860,7 +1860,7 @@ const bvhWorkerScript = `
                     vec2<f32>(0.0f, 1.0f),
                     vec2<f32>(1.0f, 1.0f),
                     vec2<f32>(0.0f, 0.0f),
-                    
+
                     vec2<f32>(0.0f, 0.0f),
                     vec2<f32>(1.0f, 1.0f),
                     vec2<f32>(1.0f, 0.0f)
@@ -1877,12 +1877,12 @@ const bvhWorkerScript = `
                     vec2<f32>(-1.0f, -1.0f),
                     vec2<f32>( 1.0f, -1.0f),
                     vec2<f32>(-1.0f,  1.0f),
-                    
+
                     vec2<f32>(-1.0f,  1.0f),
                     vec2<f32>( 1.0f, -1.0f),
                     vec2<f32>( 1.0f,  1.0f)
                     );
-                    
+
                     var output: VertexOutput;
                     output.position = vec4<f32>(positions[vertIndex], 0.0f, 1.0f);
                     output.uv = uvs[vertIndex];
@@ -2765,7 +2765,7 @@ const bvhWorkerScript = `
 
                     bvhNodesIntView[intOffset + 8] = node.leftChildOrFirstPrimitiveIndex;
                 });
-                
+
                 if (engine.uiManager) engine.uiManager.setLoadingStatus(`Updating primitive indices (${bvhData.primitiveIndices.length} indices)...`);
                 const primitiveIndicesFlat = new Uint32Array(bvhData.primitiveIndices);
 
@@ -2783,7 +2783,7 @@ const bvhWorkerScript = `
                     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
                 }, "Primitive Indices Buffer (SceneManager)");
                 if (primitiveIndicesFlat.byteLength > 0) engine.device.queue.writeBuffer(engine.primitiveIndicesBuffer, 0, primitiveIndicesFlat);
-                
+
                 this.updateRaytracerParamsUniformBuffer();
                 this.novaRayEngine.createComputeBindGroups();
             }
@@ -3342,7 +3342,7 @@ const bvhWorkerScript = `
                     NovaRayEngine.uiManager.displayErrorMessage("WebGPU device lost. Please try reducing settings and refresh.");
                 }
                 NovaRayEngine.animationFrameId = null;
-                return; 
+                return;
             }
 
             if (NovaRayEngine.uiManager.appState !== 'scene') {
@@ -3352,7 +3352,7 @@ const bvhWorkerScript = `
 
             const current_time_seconds = currentTime / 1000.0;
             const deltaTime = (current_time_seconds - lastFrameTime);
-            lastFrameTime = current_time_seconds; 
+            lastFrameTime = current_time_seconds;
 
             const moveSpeed = NovaRayEngine.sceneManager.camera.movementSpeed;
             let dx = 0, dy = 0, dz = 0;
@@ -3434,7 +3434,7 @@ const bvhWorkerScript = `
             NovaRayEngine.device.popErrorScope().then((error) => {
                 if (error) { console.error('WebGPU Error (validation scope):', error); NovaRayEngine.uiManager.displayErrorMessage(\`WebGPU Validation Error: \${error.message}\`); }
             });
-            
+
             if (currentTime - lastFpsUpdateTime >= 1000) {
                 const currentFps = (NovaRayEngine.frameCount / ((currentTime - lastFpsUpdateTime)/1000.0));
                 NovaRayEngine.uiManager.updateFPSCounter(currentFps);
@@ -3471,7 +3471,7 @@ const bvhWorkerScript = `
                  NovaRayEngine.uiManager.initEventListeners();
             }
             NovaRayEngine.uiManager.switchView('menu');
-            
+
             // Initialize NovaRayEngine state properties
             NovaRayEngine.totalTime = 0;
             NovaRayEngine.frameCount = 0;
