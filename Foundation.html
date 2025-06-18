@@ -865,7 +865,9 @@
             currentTextureIndex = 0; // Reset ping-pong state
             // Re-initialize textures to clear accumulated data
             createPingPongTextures(); // Clears textures by recreating them
-            console.log('Accumulation reset.');
+            createComputeBindGroups(); // Update bind groups with new textures
+            createRenderBindGroup();   // Update bind groups with new textures
+            console.log('Accumulation reset and bind groups recreated.');
         }
 
         togglePanelButton.addEventListener('click', () => {
