@@ -2554,6 +2554,8 @@
                 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     // cameraUBO is from @group(0) @binding(0)
                     // outputTexture is from @group(0) @binding(6)
+                    // raytracerUBO is from @group(0) @binding(2) for skyPreset
+                    // lightUBO is used by getSkyColor for sun direction
 
                     let screen_width_float = cameraUBO.resolution.x;
                     let screen_height_float = cameraUBO.resolution.y;
@@ -2563,11 +2565,31 @@
                         return;
                     }
 
-                    let r_comp = f32(global_id.x) / screen_width_float;
-                    let g_comp = f32(global_id.y) / screen_height_float;
-                    let b_comp = 0.25f; // A constant blue component for variety
+                    // Ray Generation (simplified, assuming no DOF for this step)
+                    let ndc_x = (f32(global_id.x) / screen_width_float) * 2.0f - 1.0f;
+                    let ndc_y = (1.0f - f32(global_id.y) / screen_height_float) * 2.0f - 1.0f; // Invert Y
 
-                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(r_comp, g_comp, b_comp, 1.0f));
+                    let aspect_ratio = cameraUBO.aspect;
+                    let fov_rad = cameraUBO.fovy;
+
+                    let ray_x_cam = ndc_x * aspect_ratio * tan(fov_rad / 2.0f);
+                    let ray_y_cam = ndc_y * tan(fov_rad / 2.0f);
+                    let ray_z_cam = -1.0f; // Assuming focal plane at z=-1 in camera space
+
+                    let ray_dir_camera_space = normalize(vec3<f32>(ray_x_cam, ray_y_cam, ray_z_cam));
+
+                    let ideal_ray_direction_world = normalize(
+                        ray_dir_camera_space.x * cameraUBO.right.xyz +
+                        ray_dir_camera_space.y * cameraUBO.up.xyz +
+                        ray_dir_camera_space.z * cameraUBO.forward.xyz
+                    );
+
+                    let initial_ray = Ray(cameraUBO.position.xyz, ideal_ray_direction_world);
+
+                    // Get Sky Color
+                    let sky_color_val = getSkyColor(initial_ray.direction, raytracerUBO.skyPreset);
+
+                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sky_color_val, 1.0f));
                 }
                 `; 
 
