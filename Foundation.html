@@ -1336,12 +1336,14 @@
                 bvhNodesFlat[offset + 7] = node.primitiveCount; // u32 (stored as float)
 
                 bvhNodesFlat[offset + 8] = node.leftChildOrFirstPrimitiveIndex; // u32 (stored as float)
-                // bvhNodesFlat[offset + 9] = 0; // WGSL _padding.x (u32), default 0 from new Float32Array
-                // bvhNodesFlat[offset + 10] = 0; // WGSL _padding.y (u32), default 0
-                // bvhNodesFlat[offset + 11] = 0; // WGSL _padding.z (u32), default 0
 
-                // Elements from offset + 12 to offset + 15 are additional padding to reach 64 bytes.
-                // They are implicitly 0.0f due to new Float32Array(size) initialization.
+                // Explicitly zero the WGSL struct's _padding: vec3<u32>
+                bvhNodesFlat[offset + 9] = 0.0;  // Corresponds to _padding.x
+                bvhNodesFlat[offset + 10] = 0.0; // Corresponds to _padding.y
+                bvhNodesFlat[offset + 11] = 0.0; // Corresponds to _padding.z
+
+                // Floats from offset + 12 to offset + 15 are further padding to reach 64 bytes
+                // and are implicitly zeroed by new Float32Array(16).
             });
 
             loadingStatusP.textContent = `Updating primitive indices (${bvhData.primitiveIndices.length} indices)...`;
