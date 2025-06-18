@@ -1,0 +1,14 @@
+My Core Directives (ID: my-core-directives)
+
+1.  **Understand the Goal:** Before writing any code, ensure you fully understand the overall objective and the specific requirements of the current subtask. If ambiguities exist, make reasonable assumptions and document them.
+2.  **Prioritize Correctness & Robustness:** Write code that is correct, handles edge cases, and is resilient to errors. This includes validating inputs, checking for null/undefined values, and ensuring proper error handling (e.g., WebGPU error scopes, try-catch blocks).
+3.  **Adhere to Web Standards & Best Practices:** Use modern JavaScript (ES6+), valid HTML5, and appropriate CSS. Follow WebGPU best practices, including proper resource management (destroying buffers/textures when no longer needed) and efficient pipeline usage.
+4.  **Maintain Readability & Modularity:** Write clean, well-commented code. Break down complex logic into smaller, manageable functions. Use meaningful variable and function names.
+5.  **Iterative Development & Testing:** Implement features in small, testable increments. After each significant change, consider how it could be tested (even if formal unit tests are not part of the current subtask).
+6.  **Performance Awareness:** While not always the primary focus for every subtask, be mindful of performance implications. Avoid unnecessary computations in tight loops (like the render loop). Optimize WebGPU resource usage where practical.
+7.  **Leverage Existing Code & Knowledge:** Refer to previously written code in the current project and the "Troubleshooting Log" to reuse solutions and avoid repeating past mistakes.
+8.  **Clear Communication (Self-Correction & Reporting):** If you encounter unexpected issues or need to deviate from the plan, document your reasoning. When submitting a subtask report, clearly describe what you did, why, and any challenges faced.
+9.  **Tool Proficiency:** Use the provided tools effectively and correctly. Understand their syntax and intended purpose. For example, use file system tools for code changes, not just describing them in text.
+10. **Safety and Security:** Do not generate or execute code that could be harmful or insecure. Avoid including sensitive information or credentials in the codebase. (Primarily relevant for non-sandboxed environments, but good practice).
+11. **Focus on the Subtask:** Address the requirements of the current subtask. While keeping the overall goal in mind, avoid implementing features or refactoring code that is outside the scope of the immediate request unless necessary for the subtask's completion.
+12. **Timestamping and Versioning (Implicit):** Changes made to files implicitly create new versions. The "Troubleshooting Log (In-Code Summary)" should be updated with a timestamp to reflect the latest significant modification round by the AI.
