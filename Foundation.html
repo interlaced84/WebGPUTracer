@@ -1563,7 +1563,8 @@
                 console.log("WebGPU device successfully acquired.");
                 loadingStatusP.textContent = "GPU device acquired. Configuring canvas...";
 
-                // --- Device Lost Handling ---
+                // --- Device Lost Handling (Commented out for stability testing) ---
+                /*
                 device.lost.then((info) => {
                     console.error(`WebGPU device lost: ${info.message}`);
                     displayErrorMessage(`WebGPU device lost! Reason: ${info.reason}. This often happens if the rendering is too complex for your GPU or browser. Please try reducing 'Max Bounces', 'Max Raymarch Steps', 'Shadow Samples', and 'DOF Samples' in the controls, then refresh the page.`);
@@ -1574,6 +1575,7 @@
                     }
                     switchView('menu'); // Go back to menu on device loss
                 });
+                */
                 // --- End Device Lost Handling ---
 
                 context = canvas.getContext('webgpu');
@@ -2733,7 +2735,8 @@
 
         // Main render loop
         function renderLoop(currentTime) {
-            // Check if device is lost at the start of the loop
+            // Check if device is lost at the start of the loop (Commented out for stability testing)
+            /*
             if (!device || device.lost) { 
                 console.error("WebGPU device lost or not initialized. Stopping render loop.");
                 if (device && device.lost) {
@@ -2742,6 +2745,7 @@
                 animationFrameId = null; 
                 return; 
             }
+            */
 
             // If not in the scene view, stop the render loop
             if (appState !== 'scene') {
@@ -2776,9 +2780,9 @@
             // Recreate compute bind group 0 to bind the correct textures for this frame
             createComputeBindGroups();
 
-            // --- Error Scope for Command Encoder ---
-            device.pushErrorScope('validation'); 
-            device.pushErrorScope('internal');
+            // --- Error Scope for Command Encoder (Commented out for stability testing) ---
+            // device.pushErrorScope('validation');
+            // device.pushErrorScope('internal');
             // --- End New ---
 
             const commandEncoder = device.createCommandEncoder();
@@ -2821,7 +2825,8 @@
             device.queue.submit([commandEncoder.finish()]);
             console.log("Command buffer submitted.");
 
-            // --- Pop Error Scopes after submission ---
+            // --- Pop Error Scopes after submission (Commented out for stability testing) ---
+            /*
             device.popErrorScope().then((error) => { 
                 if (error) { 
                     console.error('WebGPU Error (internal scope):', error); 
@@ -2834,6 +2839,7 @@
                     displayErrorMessage(`WebGPU Validation Error: ${error.message}. This means there's an issue with how WebGPU API calls are used.`); 
                 } 
             });
+            */
             // --- End New ---
             
             // FPS counter update
