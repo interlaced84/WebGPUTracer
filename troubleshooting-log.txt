@@ -1,0 +1,322 @@
+My Troubleshooting Methodology & Log
+This document serves as the comprehensive history and detailed solutions for all encountered issues. It outlines our systematic approach to debugging and problem-solving, ensuring that lessons learned are retained and applied proactively.
+
+Methodology
+Problem Identification: Clearly define the issue, observed symptoms, and the exact context (e.g., specific function, shader, UI interaction).
+
+Reproducibility: Determine steps to consistently reproduce the bug. If intermittent, identify conditions that increase its likelihood.
+
+Information Gathering:
+
+Console Logs: Scrutinize all console.log, console.warn, and console.error messages.
+
+WebGPU Debugger: Analyze adapter/device info, pipeline states, buffer contents, texture formats, and validation/internal errors.
+
+Shader Compilation Output: Check for WGSL compilation errors and warnings.
+
+Browser Developer Tools: Use performance profilers (CPU/GPU), memory inspectors, and network tabs if relevant.
+
+User Feedback: Incorporate user observations and contextual information.
+
+Hypothesis Formulation: Based on gathered information, propose potential root causes.
+
+Isolation & Simplification: Narrow down the problem by creating minimal reproducible examples or commenting out unrelated code.
+
+Iterative Testing & Refinement: Apply proposed solutions one by one, testing after each change.
+
+Documentation: Record the problem, hypotheses, testing steps, resolution, and lessons learned in this log.
+
+Troubleshooting Log Entries
+Entry 1: WebGPU Device Loss (Intermittent, Often 30s Stall)
+
+Date: June 17, 2025
+
+Symptoms:
+
+Application stalls for ~30 seconds, particularly during or shortly after WebGPU initialization.
+
+Console errors: OperationError: A valid external Instance reference no longer exists., WebGPU device lost: reason: unknown.
+
+Associated CPU spike during the stall period.
+
+Rendering eventually stops or fails.
+
+Hypotheses:
+
+GPU driver timeout due to invalid shader operation (e.g., infinite loop, out-of-bounds access).
+
+Race condition where GPU resources are accessed before fully ready or after device loss.
+
+Insufficient device loss handling leading to continued attempts to use a defunct device.
+
+Excessive GPU load during initial setup with default settings (e.g., too many spheres, high samples).
+
+Resolution Steps & Learnings:
+
+Initial Mitigation (Reduce Load): Set more conservative default values for targetSphereCount (5), maxBounces (2), and samplesPerPixel (4) to reduce the immediate GPU workload upon starting.
+
+Enhanced Loading Status: Provided more granular feedback during WebGPU initialization and BVH building to give user insight into progress during potential stalls.
+
+Improved Device Loss Handling:
+
+Added a device.lost.then() handler in initWebGPUAndCompileShaders to explicitly catch and log device loss events, providing a more informative message and transitioning back to the main menu.
+
+Implemented device.pushErrorScope() and device.popErrorScope() around command submission in renderLoop to catch validation and internal GPU errors. This provides more specific error messages if a command encoder operation itself is causing the device loss.
+
+Refined resizeCanvasAndAssets Call: Ensured resizeCanvasAndAssets() (which re-creates textures and bind groups) is called after both computePipeline and renderPipeline are successfully created in initWebGPUAndCompileShaders(). This prevents attempts to create bind groups with undefined pipeline layouts.
+
+Conclusion for this problem: The stall is confirmed to be a device loss. The "unknown" reason is still present, suggesting the error is deeper within the GPU driver or hardware interaction, but the logging for device.lost and error scopes will now pinpoint when it happens more accurately for future debugging. The current fix ensures the application recovers gracefully.
+
+Entry 2: WGSL global_id Scope Error
+
+Date: June 17, 2025
+
+Symptoms:
+
+WGSL shader compilation error: error: unresolved value 'global_id'
+
+Occurred specifically when rand_float was called from calculateLighting, which was called from traceRay.
+
+Hypotheses: global_id is a built-in input variable only accessible directly in the entry point (@compute fn main). It needs to be explicitly passed as an argument to other functions that require it.
+
+Resolution: Modified calculateLighting and get_color_from_sub_hit functions to accept global_id_xy: vec2<u32> as a parameter. Updated all call sites in traceRay and main to pass global_id.xy (or frag_coord_xy derived from it) to these functions.
+
+Learning: Always explicitly pass built-in shader inputs (global_id, local_id, vertex_index, etc.) as function parameters when their values are needed in sub-functions, as their scope is limited to the entry point.
+
+Entry 3: WGSL perm Array Initialization/Syntax
+
+Date: June 16-17, 2025 (Multiple iterations)
+
+Symptoms:
+
+WGSL shader compilation errors: expected ')', expected '"", array index out of bounds, variable 'perm' already declared.
+
+Resulted in black screen or no rendering.
+
+Hypotheses:
+
+Incorrect array size declaration vs. initialization length.
+
+Missing u suffix for u32 integer literals, causing parsing issues.
+
+Subtle syntax errors or invisible characters in the large literal array.
+
+Resolution:
+
+Ensured perm array was declared as array<u32, 512> and explicitly initialized with 512 elements by duplicating the initial 256 elements.
+
+Verified that all integer literals in the perm array had the u suffix (e.g., 151u).
+
+Meticulously re-typed and double-checked the array contents to eliminate any hidden characters or typos.
+
+Removed a redundant init_perlin_tables() function, as global arrays are initialized at module scope.
+
+Learning: WGSL array initialization is strict. u32 literals must have the u suffix. For large literal data, extreme care is needed to prevent subtle syntax errors or truncated data, which can lead to cryptic compilation errors. Duplicating permutation tables to fill 512 elements is a common practice for Perlin noise.
+
+Entry 4: WGSL is_water_medium_flag - "Unexpected identifier"
+
+Date: June 16, 2025
+
+Symptoms:
+
+WGSL shader compilation error: SyntaxError: Unexpected identifier 'is_water_medium_flag'.
+
+Hypotheses: WGSL can be sensitive to certain variable names or patterns, especially for booleans or flags when implicit conversions are involved. Using u32 (0 or 1) for flags can be more robust.
+
+Resolution: Consistently changed boolean-like parameters and local variables related to water medium flags (in_water_medium, in_water_medium_param, is_current_medium_water) to u32 type (0 or 1). Renamed them to is_water_medium_flag, is_sub_ray_in_water_medium_flag, and is_in_water_medium_trace for clarity and to avoid any potential WGSL keyword clashes or parsing quirks.
+
+Learning: When encountering "Unexpected identifier" in WGSL, check for variable naming conflicts, reserved keywords, and consider explicit type conversions, especially for boolean logic where u32 (0 or 1) can sometimes be more stable than bool in specific contexts or older WGSL versions.
+
+Entry 5: WGSL snellsLaw parameter mismatch / incident_dir vs incident
+
+Date: June 16, 2025
+
+Symptoms:
+
+WGSL shader compilation errors, potentially unresolved value or type mismatch related to snellsLaw function.
+
+Hypotheses: A typo or mismatch in parameter names or types between the function definition and its call sites.
+
+Resolution: Corrected the parameter name from incident to incident_dir within the snellsLaw function definition to match the intended usage and ensure consistency with call sites.
+
+Learning: Always double-check function signatures, parameter names, and types for exact matches, especially after refactoring or complex logic changes.
+
+Entry 6: WGSL is_in_current_medium_water - "unresolved value"
+
+Date: June 16, 2025
+
+Symptoms:
+
+WGSL shader compilation error: unresolved value is_in_current_medium_water.
+
+Hypotheses: Variable was declared within a conditional block or loop, limiting its scope, and then accessed outside that scope.
+
+Resolution: Declared var is_in_current_medium_water: u32 = 0u; at the beginning of the traceRay function to ensure it's always in scope. Updated its value as current_ior changed.
+
+Learning: Be mindful of variable scope in WGSL (and most programming languages). Declare variables in the broadest necessary scope to avoid "unresolved value" errors.
+
+Entry 7: WGSL let kD - "cannot assign to 'let kD'"
+
+Date: June 16, 2025
+
+Symptoms:
+
+WGSL shader compilation error: cannot assign to 'let kD'.
+
+Hypotheses: Attempting to reassign a value to a variable declared with let, which makes it immutable.
+
+Resolution: Changed let kD to var kD to allow reassignment.
+
+Learning: let creates immutable variables in WGSL, var creates mutable ones. Choose the correct keyword based on whether the variable's value needs to change after initialization.
+
+Entry 8: WGSL globalWarpStrength and other global JS variables - "unresolved value"
+
+Date: June 16, 2025
+
+Symptoms:
+
+WGSL shader compilation errors: unresolved value globalWarpStrength, and similar for skyPreset, camera.focalDistance, camera.apertureSize.
+
+Hypotheses: JavaScript global variables are not directly accessible in WGSL. They must be passed as uniforms (members of a uniform struct) via a GPUBuffer.
+
+Resolution:
+
+Created a new WGSL struct RaytracerParams to hold these global f32 and u32 parameters.
+
+Added raytracerUBO: RaytracerParams as a uniform binding in @group(0) @binding(2).
+
+Modified JavaScript to create and update raytracerUBOBuffer with these values.
+
+Updated the compute pipeline's bind group layout and entries to include this new uniform buffer.
+
+Learning: All data passed from JavaScript to WGSL (except for textures and samplers which have their own bindings) must reside in GPU buffers (uniform, storage, or vertex buffers) and be explicitly declared and bound in WGSL. Pay close attention to UBO packing and alignment rules.
+
+Entry 9: WGSL .length() call on storage buffers and lightUBOBuffer size mismatch
+
+Date: June 15, 2025
+
+Symptoms:
+
+WGSL parsing errors when using .length() on storage buffers (spheres, bvhNodes, primitiveIndices).
+
+Write range does not fit error for lightUBOBuffer.
+
+Hypotheses:
+
+WGSL array<T> does not expose a .length() method like JavaScript arrays. The size must be known at compile time or passed as a uniform.
+
+JavaScript GPUBuffer size must exactly match the byte size of the WGSL struct it represents, respecting alignment rules.
+
+Resolution:
+
+Removed .length() calls from WGSL. Instead, passed numBVHNodes and numPrimitives as new u32 members within the RaytracerParams uniform struct.
+
+Corrected lightUBOBuffer size to 48 bytes (from 32) in JavaScript to correctly accommodate the LightUniform WGSL struct (vec3 position, f32 brightness, f32 size, f32 padding, vec3 color, f32 padding).
+
+Ensured JavaScript updates these new uniform fields.
+
+Learning: Dynamic sizing of WGSL arrays from storage buffers is not directly supported via .length(). Lengths must be passed as uniforms. Always meticulously match JavaScript buffer sizes to WGSL struct layouts, paying attention to 16-byte alignment requirements for struct members.
+
+Entry 10: Canvas Resize and Bind Group Creation Timing
+
+Date: June 15, 2025
+
+Symptoms:
+
+Skipping bind group creation: essential resources not ready warning.
+
+Potential black screen or visual artifacts after canvas resize.
+
+Hypotheses: createComputeBindGroups() and createRenderBindGroup() were being called during resizeCanvasAndAssets() before computePipeline and renderPipeline were fully initialized, leading to attempts to get layouts from non-existent pipelines.
+
+Resolution: Moved the call to resizeCanvasAndAssets() in initWebGPUAndCompileShaders() to occur after both computePipeline and renderPipeline have been successfully created.
+
+Learning: Ensure the order of WebGPU object creation. Bind groups depend on pipeline layouts, so pipelines must exist before bind groups can be created or re-created during a resize.
+
+Entry 11: Removed device.onuncapturederror and ErrorScope for Stability
+
+Date: June 14, 2025
+
+Symptoms:
+
+Intermittent GPU device loss, particularly on the user's system, when device.onuncapturederror and device.pushErrorScope/popErrorScope were active.
+
+Hypotheses: On certain systems or driver versions, these debugging features can interfere with GPU stability or trigger unexpected device resets.
+
+Resolution: Temporarily removed explicit device.onuncapturederror and device.pushErrorScope/popErrorScope calls to improve overall stability, acknowledging this as a system-specific workaround. (Note: Re-introduced Error Scopes in a later iteration with more careful handling as they are valuable for debugging).
+
+Learning: While powerful, WebGPU debugging features like error scopes can sometimes expose or interact negatively with specific GPU drivers or hardware. If stability issues arise, consider temporarily disabling them to isolate the problem.
+
+Entry 12: Sun Color/Hue Control Implementation
+
+Date: June 14, 2025
+
+Symptoms: Feature request.
+
+Hypotheses: Need to convert a single hue value (0-1) into an RGB color for the sun's light.
+
+Resolution:
+
+Renamed "Lighting" UI section to "Sun".
+
+Added a sunHue float variable and a corresponding UI slider (0-1).
+
+Implemented hsvToRgb JavaScript function to convert the sunHue to vec3<f32> RGB.
+
+Updated lightUBO.color in updateLightUniformBuffer() using this converted RGB value.
+
+Learning: HSV-to-RGB conversion is a useful utility for artist-friendly color controls.
+
+Entry 13: Full PBR Raytracer Regression and Reconstruction
+
+Date: June 13, 2025
+
+Symptoms: Previous generation truncated the code, losing thousands of lines of features (PBR, BVH, full scene elements).
+
+Hypotheses: Generative model output limits were hit, or a previous command implicitly reset the context.
+
+Resolution: Performed a full reconstruction of the PBR-enabled raytracer with BVH into a single HTML file, integrating it with the new Main Menu and Scene Management system. This was a critical step to restore functionality.
+
+Learning: Always verify the completeness of generated code, especially for large projects, and be prepared to reconstruct from the last known good state if truncation occurs.
+
+Entry 14: Initial PBR Implementation (GGX, Fresnel, etc.)
+
+Date: June 13, 2025
+
+Symptoms: Feature request: Implement Physically Based Rendering.
+
+Hypotheses: Requires specific PBR BRDF components (NDF, Geometry, Fresnel) and material properties.
+
+Resolution:
+
+Integrated GGX Normal Distribution Function (DistributionGGX), Schlick-GGX Geometry Function (GeometrySchlickGGX, GeometrySmith), and Fresnel (FresnelSchlickPBR) into the WGSL compute shader.
+
+Added new material properties (metallic, roughness, baseReflectivity) to the Sphere struct.
+
+Updated populateInitialSpheres and updateGPUBuffers to handle the new material data layout.
+
+Modified the lighting calculation in the shader to use the PBR model.
+
+Learning: PBR introduces physically accurate light interactions, requiring new material properties and complex BRDF equations in the shader.
+
+Entry 15: BVH Integration into Compute Shader & CPU Construction
+
+Date: June 12-13, 2025
+
+Symptoms: Feature request: Implement BVH for efficient raytracing.
+
+Hypotheses: BVH requires CPU-side construction and GPU-side traversal.
+
+Resolution:
+
+Implemented CPU-side AABB and BvhNode classes and buildBvh function for constructing the BVH.
+
+Created bvhNodesBuffer and primitiveIndicesBuffer as storage buffers.
+
+Implemented WGSL functions for BVH traversal (intersect_aabb, bvh_scene_sdf_spheres) within the compute shader.
+
+Modified sceneSDF to utilize the BVH for sphere intersection.
+
+Decision: CPU-side BVH construction was chosen for simplicity in a single HTML file, acknowledging potential UI freezes for very high sphere counts.
+
+Learning: BVH significantly improves raytracing performance for complex scenes. The division of labor between CPU (build) and GPU (traverse) is critical. Storage buffers are essential for passing dynamic data structures like BVH nodes to the GPU.

@@ -1,0 +1,116 @@
+This document provides a collection of useful resources for learning about WebGPU and for troubleshooting common issues that may arise during development.
+
+Official Documentation & Specifications
+WebGPU Specification: The authoritative source for all WebGPU APIs and behaviors. While dense, it's the ultimate reference for understanding the standard.
+
+W3C WebGPU Specification
+
+WGSL Specification (WebGPU Shading Language): Essential for understanding how to write shaders that run on the GPU.
+
+W3C WGSL Specification
+
+MDN WebGPU Documentation: A more accessible and tutorial-oriented resource for WebGPU. Great for getting started and understanding core concepts.
+
+MDN WebGPU
+
+Learning Resources & Tutorials
+WebGPU Fundamentals (Google Chrome Team): A comprehensive series of articles covering WebGPU concepts from basics to advanced topics, often with live examples. Highly recommended.
+
+WebGPU Fundamentals
+
+Learn WebGPU: Another great resource with interactive examples and clear explanations.
+
+Learn WebGPU
+
+WebGPU Samples: Official WebGPU examples provided by the Chrome team, demonstrating various features. Good for seeing how specific effects are implemented.
+
+WebGPU Samples on GitHub
+
+Debugging & Troubleshooting Tools
+Browser Developer Tools:
+
+Console: Always check the browser's developer console (F12 or Cmd+Option+I) for JavaScript errors, WebGPU validation errors, and device.onuncapturederror messages (if enabled).
+
+GPU Inspector (Chrome/Edge): In Chrome DevTools, under the "More tools" menu, you can find "GPU Inspector." This tool provides detailed information about GPU processes, including:
+
+GPU memory usage.
+
+Shader compilation status and errors.
+
+Command buffer contents and execution.
+
+Texture and buffer viewer: Extremely useful for inspecting the contents of your GPU textures and buffers to verify data.
+
+Performance Monitor: Monitor GPU utilization and frame rates to identify performance bottlenecks.
+
+WGSL Validator / Linter: Tools that can check your WGSL code for syntax errors and common issues before sending it to the GPU.
+
+Many IDEs have extensions for WGSL linting (e.g., VS Code extensions).
+
+device.pushErrorScope() / device.popErrorScope(): (Note: As per our troubleshooting log, these were removed from the main project code due to system-specific instability. However, they are generally useful for targeted debugging in other contexts.) These methods allow you to catch specific WebGPU errors programmatically.
+
+device.pushErrorScope('validation'); // Or 'out-of-memory'
+// Perform WebGPU operations that might cause an error
+const error = await device.popErrorScope();
+if (error) {
+    console.error("WebGPU error caught:", error.message);
+}
+
+Check GPU Drivers: Outdated or corrupted GPU drivers are a common cause of WebGPU instability or "device lost" errors. Ensure your graphics drivers are up-to-date.
+
+Browser Flags: For experimental features or to enable/disable specific WebGPU behaviors for debugging, you might use browser flags. (e.g., chrome://flags for Chrome). Use with caution.
+
+Common WebGPU Issues & Tips
+GPU device lost: This is a common and frustrating error.
+
+Causes: Too much GPU memory usage, invalid shader code leading to driver crashes, uncaught validation errors, browser bugs, or sometimes even conflicting browser extensions (ad-blockers can sometimes interfere with WebGPU workers).
+
+Troubleshooting:
+
+Check the console for any preceding validation errors.
+
+Simplify your shader code.
+
+Reduce resource allocation (texture sizes, buffer sizes).
+
+Ensure all resources are properly configured and bound.
+
+Try in an Incognito/Private browser window to rule out extensions.
+
+Update GPU drivers.
+
+Restart your browser or computer.
+
+Shader Compilation Errors:
+
+Syntax Errors: Meticulously review WGSL syntax, especially array initializations, struct definitions, and function signatures. Pay attention to u suffix for u32 literals.
+
+Type Mismatches: Ensure consistent data types between JavaScript (e.g., Float32Array, Uint32Array) and WGSL (f32, u32, vec3<f32>).
+
+Binding Errors: Verify @group and @binding decorators match your device.createBindGroup layouts precisely.
+
+Alignment: Be aware of WGSL's memory alignment rules for structs and uniform/storage buffers. Sometimes padding is required (e.g., _padding: f32).
+
+Blank Canvas / Nothing Rendering:
+
+Shader Errors: The shader might be compiling but producing black pixels. Check shader logic.
+
+Pipeline Configuration: Ensure pipeline and renderPassDescriptor are correctly set up (e.g., correct format for targets).
+
+Draw Calls: Verify renderPass.draw() is called with the correct vertex count.
+
+Bind Groups: Ensure all required bind groups are set with renderPass.setBindGroup().
+
+Resource Uploads: Confirm data is correctly written to buffers using device.queue.writeBuffer().
+
+Command Submission: Ensure device.queue.submit() is called with the finished command encoder.
+
+Performance Issues:
+
+Dispatch Size: Optimize dispatchWorkgroups sizes.
+
+Resource Recreation: Avoid recreating pipelines, bind groups, and textures every frame if not necessary. Reuse resources as much as possible.
+
+Shader Complexity: Optimize complex shader calculations.
+
+CPU-GPU Bottlenecks: Use performance.mark() and performance.measure() in JavaScript to profile CPU-side work vs. GPU-side work.
