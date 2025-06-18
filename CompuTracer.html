@@ -487,6 +487,42 @@
                 <div class="github-link">
                     <a href="https://github.com/your-repo-link" target="_blank">View on GitHub</a>
                 </div>
+
+                <div id="selected-sphere-controls" style="display: none; margin-top: 20px; border-top: 1px solid #4a5568; padding-top: 15px;">
+                    <h3 style="color: #00ffff; font-weight: bold; margin-bottom: 10px;">Selected Sphere (-1)</h3>
+                    <div class="control-group">
+                        <label for="selected-albedo-color">Albedo: </label>
+                        <input type="color" id="selected-albedo-color" value="#ffffff" style="width: 100%; height: 30px; padding: 2px;">
+                    </div>
+                    <div class="control-group">
+                        <label for="selected-radius-slider">Radius: <span id="selected-radius-value" class="current-value">1.0</span></label>
+                        <input type="range" id="selected-radius-slider" min="0.1" max="10.0" step="0.1" value="1.0" class="input-range">
+                    </div>
+                    <div class="control-group">
+                        <label for="selected-metallic-slider">Metallic: <span id="selected-metallic-value" class="current-value">0.0</span></label>
+                        <input type="range" id="selected-metallic-slider" min="0.0" max="1.0" step="0.01" value="0.0" class="input-range">
+                    </div>
+                    <div class="control-group">
+                        <label for="selected-roughness-slider">Roughness: <span id="selected-roughness-value" class="current-value">0.5</span></label>
+                        <input type="range" id="selected-roughness-slider" min="0.0" max="1.0" step="0.01" value="0.5" class="input-range">
+                    </div>
+                    <div class="control-group">
+                        <label for="selected-reflectivity-slider">Reflectivity (F0): <span id="selected-reflectivity-value" class="current-value">0.04</span></label>
+                        <input type="range" id="selected-reflectivity-slider" min="0.0" max="1.0" step="0.01" value="0.04" class="input-range">
+                    </div>
+                    <div class="control-group">
+                        <label for="selected-material-type">Material Type:</label>
+                        <select id="selected-material-type" class="w-full p-2 rounded-md bg-gray-700 text-gray-200 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500" style="color: white; background-color: #2d3748;">
+                            <option value="0">Diffuse</option>
+                            <option value="1">Reflective</option>
+                            <option value="2">Refractive</option>
+                        </select>
+                    </div>
+                    <div id="selected-refractive-index-control-group" class="control-group" style="display: none;"> {/* Initially hidden */}
+                        <label for="selected-refractive-index-slider">Refractive Index: <span id="selected-refractive-index-value" class="current-value">1.5</span></label>
+                        <input type="range" id="selected-refractive-index-slider" min="1.0" max="2.5" step="0.01" value="1.5" class="input-range">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -509,6 +545,7 @@
         // --- End References & Checks ---
         //
         // Troubleshooting Log (In-Code Summary):
+        // Last modified by AI: 2024-07-15 12:05:00 UTC
         // This section provides a brief summary of the most recent and relevant troubleshooting steps directly related to this file.
         // For the complete and detailed troubleshooting history, refer to the 'My Troubleshooting Methodology' document (ID: 'troubleshooting-log').
         //
@@ -590,6 +627,14 @@
         let waterUBOBuffer;
         let terrainUBOBuffer;
         let raytracerUBOBuffer;
+
+        // Pre-allocated TypedArrays for UBO data
+        let cameraDataArray = new Float32Array(24); // 96 bytes
+        let lightDataArray = new Float32Array(16);    // 64 bytes
+        let timeDataArray = new Float32Array(4);      // 16 bytes
+        let waterDataArray = new Float32Array(4);     // 16 bytes
+        let terrainDataArray = new Float32Array(4);   // 16 bytes
+        let raytracerDataArray = new Float32Array(12); // 48 bytes
         
         // BVH Storage Buffers
         let bvhNodesBuffer;
@@ -671,6 +716,7 @@
 
         // Ping-pong texture tracking
         let currentTextureIndex = 0; // 0 for outputTexture0, 1 for outputTexture1
+        let lastClickedRay = { origin: null, direction: null }; // For storing the last clicked ray
 
         // UI Elements (App State Management)
         let appState = 'menu'; // Initial state is the menu
@@ -755,9 +801,84 @@
                 // Auto-hide after some time
                 setTimeout(() => {
                     errorMessageDisplay.classList.remove('active');
-                }, 5000);
+                }, 7000); // Increased display time for potentially longer messages
             }
             console.error(message);
+        }
+
+        // --- Input Validation Helper ---
+        function validateAndClampInput(event, isFloat = false) {
+            const inputElement = event.target;
+            let value = isFloat ? parseFloat(inputElement.value) : parseInt(inputElement.value);
+            const min = isFloat ? parseFloat(inputElement.min) : parseInt(inputElement.min);
+            const max = isFloat ? parseFloat(inputElement.max) : parseInt(inputElement.max);
+            let originalValue = value; // For logging
+
+            if (isNaN(value) || !isFinite(value)) {
+                console.warn(`Invalid input: ${inputElement.value} for ${inputElement.id}. Resetting to min/max bounds or default. Original was NaN or Infinite.`);
+                value = min;
+            }
+
+            if (value < min) {
+                value = min;
+                console.warn(`Input ${originalValue} for ${inputElement.id} was below min (${min}). Clamped to ${value}.`);
+            } else if (value > max) {
+                value = max;
+                console.warn(`Input ${originalValue} for ${inputElement.id} was above max (${max}). Clamped to ${value}.`);
+            }
+
+            inputElement.value = value;
+            return value;
+        }
+
+        // --- Buffer Write Validation Helper ---
+        function validateAndWriteBuffer(bufferName, functionName, targetBuffer, bufferOffset, sourceData, sourceDataElementOffset = 0, writeDataSizeInBytes) {
+            if (!device || !device.queue || !targetBuffer || !sourceData) {
+                console.error(`[${functionName}] Error: WebGPU device, queue, targetBuffer, or sourceData is null/undefined for ${bufferName}. Skipping writeBuffer.`);
+                displayErrorMessage(`Critical error: Essential WebGPU component missing for ${bufferName}. Check console.`);
+                return false;
+            }
+
+            const sourceDataByteOffset = sourceDataElementOffset * sourceData.BYTES_PER_ELEMENT;
+            let effectiveWriteDataSize = writeDataSizeInBytes;
+            if (effectiveWriteDataSize === undefined) {
+                effectiveWriteDataSize = sourceData.byteLength - sourceDataByteOffset;
+            }
+
+            let valid = true;
+            let errors = [];
+
+            // Check 1: bufferOffset must be a multiple of 4.
+            if (bufferOffset % 4 !== 0) {
+                errors.push(`bufferOffset (${bufferOffset}) must be a multiple of 4.`);
+                valid = false;
+            }
+            // Check 2: sourceDataByteOffset must be a multiple of 4.
+            if (sourceDataByteOffset % 4 !== 0) {
+                errors.push(`sourceDataByteOffset (${sourceDataByteOffset}, from element offset ${sourceDataElementOffset}) must be a multiple of 4.`);
+                valid = false;
+            }
+            // Check 3: effectiveWriteDataSize must be a multiple of 4.
+            if (effectiveWriteDataSize % 4 !== 0) {
+                errors.push(`effectiveWriteDataSize (${effectiveWriteDataSize}) must be a multiple of 4.`);
+                valid = false;
+            }
+            // Check 4: bufferOffset + effectiveWriteDataSize must not exceed targetBuffer.size.
+            if (bufferOffset + effectiveWriteDataSize > targetBuffer.size) {
+                errors.push(`bufferOffset (${bufferOffset}) + effectiveWriteDataSize (${effectiveWriteDataSize}) = ${bufferOffset + effectiveWriteDataSize} exceeds targetBuffer.size (${targetBuffer.size}).`);
+                valid = false;
+            }
+
+            if (valid) {
+                // Ensure the validated effectiveWriteDataSize is passed to the native call
+                device.queue.writeBuffer(targetBuffer, bufferOffset, sourceData, sourceDataByteOffset, effectiveWriteDataSize);
+                return true;
+            } else {
+                const errorMessage = `[${functionName}] Buffer write validation failed for '${bufferName}':\n${errors.join('\n')}`;
+                console.error(errorMessage);
+                displayErrorMessage(`Buffer write validation error for ${bufferName}. Check console for details.`);
+                return false;
+            }
         }
 
         // --- View Management Logic ---
@@ -814,10 +935,12 @@
 
         function applySettingsAndStart() {
             // Update global settings based on UI
-            targetSphereCount = parseInt(numSpheresRange.value);
-            maxBounces = parseInt(maxBouncesRange.value);
-            shadowSamples = parseInt(samplesPerPixelRange.value);
-            dofSamples = parseInt(samplesPerPixelRange.value); // Use same for now
+            // Values are already validated and stored in the range elements themselves
+            // or directly in global vars by their respective event listeners.
+            targetSphereCount = parseInt(numSpheresRange.value); // Assuming numSpheresRange.value is updated by its listener
+            maxBounces = parseInt(maxBouncesRange.value);       // Assuming maxBouncesRange.value is updated by its listener
+            shadowSamples = parseInt(samplesPerPixelRange.value); // Assuming samplesPerPixelRange.value is updated
+            dofSamples = shadowSamples; // Keep these linked for now as per existing logic
 
             // Update scene controls sliders to reflect these new values
             sphereCountSlider.value = targetSphereCount; sphereCountValue.textContent = targetSphereCount;
@@ -832,14 +955,24 @@
         }
 
         // Event listeners for settings sliders
-        numSpheresRange.addEventListener('input', (e) => { numSpheresValueSpan.textContent = e.target.value; });
-        maxBouncesRange.addEventListener('input', (e) => { maxBouncesValueSpan.textContent = e.target.value; });
-        samplesPerPixelRange.addEventListener('input', (e) => { samplesPerPixelValueSpan.textContent = e.target.value; });
+        numSpheresRange.addEventListener('input', (e) => {
+            const value = validateAndClampInput(e, false);
+            numSpheresValueSpan.textContent = value;
+            // No need to update targetSphereCount here, applySettingsAndStart reads from numSpheresRange.value
+        });
+        maxBouncesRange.addEventListener('input', (e) => {
+            const value = validateAndClampInput(e, false);
+            maxBouncesValueSpan.textContent = value;
+        });
+        samplesPerPixelRange.addEventListener('input', (e) => {
+            const value = validateAndClampInput(e, false);
+            samplesPerPixelValueSpan.textContent = value;
+        });
         
         qualityPresetSelect.addEventListener('change', (e) => {
             const preset = e.target.value;
             if (preset === 'low') {
-                numSpheresRange.value = 5;
+                numSpheresRange.value = 5; // Directly set value, it will be picked up by applySettingsAndStart
                 maxBouncesRange.value = 2;
                 samplesPerPixelRange.value = 4;
             } else if (preset === 'medium') {
@@ -847,10 +980,11 @@
                 maxBouncesRange.value = 4;
                 samplesPerPixelRange.value = 16;
             } else if (preset === 'high') {
-                numSpheresRange.value = 50; // Reduced max from 100 to 50 for high preset
+                numSpheresRange.value = 50;
                 maxBouncesRange.value = 8;
                 samplesPerPixelRange.value = 32;
             }
+            // Update spans after setting values
             numSpheresValueSpan.textContent = numSpheresRange.value;
             maxBouncesValueSpan.textContent = maxBouncesRange.value;
             samplesPerPixelValueSpan.textContent = samplesPerPixelRange.value;
@@ -873,53 +1007,51 @@
         });
 
         sphereCountSlider.addEventListener('input', (e) => { 
-            targetSphereCount = parseInt(e.target.value); 
+            targetSphereCount = validateAndClampInput(e, false);
             sphereCountValue.textContent = targetSphereCount; 
-            manageSpheres(); // Rebuilds BVH and updates GPU buffers
-            resetAccumulation(); // Reset accumulation on scene change
+            manageSpheres();
+            resetAccumulation();
         });
 
-        lightXSlider.addEventListener('input', (e) => { light.position[0] = parseFloat(e.target.value); lightXValue.textContent = light.position[0].toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
-        lightYSlider.addEventListener('input', (e) => { light.position[1] = parseFloat(e.target.value); lightYValue.textContent = light.position[1].toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
-        lightZSlider.addEventListener('input', (e) => { light.position[2] = parseFloat(e.target.value); lightZValue.textContent = light.position[2].toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
-        lightBrightnessSlider.addEventListener('input', (e) => { light.brightness = parseFloat(e.target.value); lightBrightnessValue.textContent = light.brightness.toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
-        lightSizeSlider.addEventListener('input', (e) => { light.size = parseFloat(e.target.value); lightSizeValue.textContent = light.size.toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
+        lightXSlider.addEventListener('input', (e) => { light.position[0] = validateAndClampInput(e, true); lightXValue.textContent = light.position[0].toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
+        lightYSlider.addEventListener('input', (e) => { light.position[1] = validateAndClampInput(e, true); lightYValue.textContent = light.position[1].toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
+        lightZSlider.addEventListener('input', (e) => { light.position[2] = validateAndClampInput(e, true); lightZValue.textContent = light.position[2].toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
+        lightBrightnessSlider.addEventListener('input', (e) => { light.brightness = validateAndClampInput(e, true); lightBrightnessValue.textContent = light.brightness.toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
+        lightSizeSlider.addEventListener('input', (e) => { light.size = validateAndClampInput(e, true); lightSizeValue.textContent = light.size.toFixed(1); updateLightUniformBuffer(); resetAccumulation(); });
         
-        // New Sun Hue Slider Listener
         sunHueSlider.addEventListener('input', (e) => {
-            sunHue = parseFloat(e.target.value);
-            sunHueValueSpan.textContent = sunHue.toFixed(2); // Display as 0.00 to 1.00
-            light.color = hsvToRgb(sunHue); // Convert hue to RGB
+            sunHue = validateAndClampInput(e, true);
+            sunHueValueSpan.textContent = sunHue.toFixed(2);
+            light.color = hsvToRgb(sunHue);
             updateLightUniformBuffer();
-            resetAccumulation(); // Reset accumulation on setting change
+            resetAccumulation();
         });
 
-        waveStrengthSlider.addEventListener('input', (e) => { waveStrength = parseFloat(e.target.value); waveStrengthValue.textContent = waveStrength.toFixed(2); updateWaterUniformBuffer(); resetAccumulation(); });
-        waveFrequencySlider.addEventListener('input', (e) => { waveFrequency = parseFloat(e.target.value); waveFrequencyValue.textContent = waveFrequency.toFixed(1); updateWaterUniformBuffer(); resetAccumulation(); });
-        waveSpeedSlider.addEventListener('input', (e) => { waveSpeed = parseFloat(e.target.value); waveSpeedValue.textContent = waveSpeed.toFixed(2); updateWaterUniformBuffer(); resetAccumulation(); });
+        waveStrengthSlider.addEventListener('input', (e) => { waveStrength = validateAndClampInput(e, true); waveStrengthValue.textContent = waveStrength.toFixed(3); updateWaterUniformBuffer(); resetAccumulation(); }); // .toFixed(3) for step 0.005
+        waveFrequencySlider.addEventListener('input', (e) => { waveFrequency = validateAndClampInput(e, true); waveFrequencyValue.textContent = waveFrequency.toFixed(1); updateWaterUniformBuffer(); resetAccumulation(); });
+        waveSpeedSlider.addEventListener('input', (e) => { waveSpeed = validateAndClampInput(e, true); waveSpeedValue.textContent = waveSpeed.toFixed(2); updateWaterUniformBuffer(); resetAccumulation(); });
         
         refractiveIndexSlider.addEventListener('input', (e) => { 
-            globalRefractiveIndex = parseFloat(e.target.value); 
+            globalRefractiveIndex = validateAndClampInput(e, true);
             refractiveIndexValue.textContent = globalRefractiveIndex.toFixed(2); 
             spheres.forEach(s => { 
                 if (s.materialType === MATERIAL_REFRACTIVE) { 
                     s.refractiveIndex = globalRefractiveIndex; 
                 } 
             }); 
-            // Update sphere data on GPU, reusing the existing BVH data
             updateGPUBuffers(spheres, currentBvhResult); 
-            resetAccumulation(); // Reset accumulation on setting change
+            resetAccumulation();
         }); 
 
-        warpStrengthSlider.addEventListener('input', (e) => { globalWarpStrength = parseFloat(e.target.value); warpStrengthValue.textContent = globalWarpStrength.toFixed(2); updateRaytracerParamsUniformBuffer(); resetAccumulation(); }); 
-        terrainHeightSlider.addEventListener('input', (e) => { terrainHeightScale = parseFloat(e.target.value); terrainHeightValue.textContent = terrainHeightScale.toFixed(1); updateTerrainUniformBuffer(); resetAccumulation(); });
-        terrainFrequencySlider.addEventListener('input', (e) => { terrainFrequency = parseFloat(e.target.value); terrainFrequencyValue.textContent = terrainFrequency.toFixed(2); updateTerrainUniformBuffer(); resetAccumulation(); });
-        bouncesSlider.addEventListener('input', (e) => { maxBounces = parseInt(e.target.value); bouncesValue.textContent = maxBounces; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
-        raymarchStepsSlider.addEventListener('input', (e) => { maxRaymarchSteps = parseInt(e.target.value); raymarchStepsValue.textContent = maxRaymarchSteps; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
-        shadowSamplesSlider.addEventListener('input', (e) => { shadowSamples = parseInt(e.target.value); shadowSamplesValue.textContent = shadowSamples; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
-        dofSamplesSlider.addEventListener('input', (e) => { dofSamples = parseInt(e.target.value); dofSamplesValue.textContent = dofSamples; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
-        focalDistanceSlider.addEventListener('input', (e) => { camera.focalDistance = parseFloat(e.target.value); focalDistanceValue.textContent = camera.focalDistance.toFixed(1); updateRaytracerParamsUniformBuffer(); resetAccumulation(); }); 
-        apertureSizeSlider.addEventListener('input', (e) => { camera.apertureSize = parseFloat(e.target.value); apertureSizeValue.textContent = camera.apertureSize.toFixed(2); updateRaytracerParamsUniformBuffer(); resetAccumulation(); }); 
+        warpStrengthSlider.addEventListener('input', (e) => { globalWarpStrength = validateAndClampInput(e, true); warpStrengthValue.textContent = globalWarpStrength.toFixed(2); updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
+        terrainHeightSlider.addEventListener('input', (e) => { terrainHeightScale = validateAndClampInput(e, true); terrainHeightValue.textContent = terrainHeightScale.toFixed(1); updateTerrainUniformBuffer(); resetAccumulation(); });
+        terrainFrequencySlider.addEventListener('input', (e) => { terrainFrequency = validateAndClampInput(e, true); terrainFrequencyValue.textContent = terrainFrequency.toFixed(2); updateTerrainUniformBuffer(); resetAccumulation(); });
+        bouncesSlider.addEventListener('input', (e) => { maxBounces = validateAndClampInput(e, false); bouncesValue.textContent = maxBounces; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
+        raymarchStepsSlider.addEventListener('input', (e) => { maxRaymarchSteps = validateAndClampInput(e, false); raymarchStepsValue.textContent = maxRaymarchSteps; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
+        shadowSamplesSlider.addEventListener('input', (e) => { shadowSamples = validateAndClampInput(e, false); shadowSamplesValue.textContent = shadowSamples; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
+        dofSamplesSlider.addEventListener('input', (e) => { dofSamples = validateAndClampInput(e, false); dofSamplesValue.textContent = dofSamples; updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
+        focalDistanceSlider.addEventListener('input', (e) => { camera.focalDistance = validateAndClampInput(e, true); focalDistanceValue.textContent = camera.focalDistance.toFixed(1); updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
+        apertureSizeSlider.addEventListener('input', (e) => { camera.apertureSize = validateAndClampInput(e, true); apertureSizeValue.textContent = camera.apertureSize.toFixed(2); updateRaytracerParamsUniformBuffer(); resetAccumulation(); });
 
         sunnyDayButton.addEventListener('click', () => { 
             skyPreset = 0; updateRaytracerParamsUniformBuffer(); 
@@ -1001,91 +1133,95 @@
             // near: f32, far: f32, _padding4: vec2<f32>, (16 bytes, 2 floats, then vec2 for padding to 16)
             // Total: 6 * 16 bytes = 96 bytes.
             // This translates to 24 floats.
-            const cameraData = new Float32Array([
-                camera.position[0], camera.position[1], camera.position[2], 0.0, // position (vec3 + padding to vec4)
-                camera.forward[0], camera.forward[1], camera.forward[2], 0.0,  // forward (vec3 + padding to vec4)
-                camera.right[0], camera.right[1], camera.right[2], 0.0,    // right (vec3 + padding to vec4)
-                camera.up[0], camera.up[1], camera.up[2], 0.0,        // up (vec3 + padding to vec4)
-                canvas.width, canvas.height, // resolution (vec2<f32>)
-                camera.aspect,          // aspect (f32)
-                camera.fovy,            // fovy (f32)
-                camera.near,            // near (f32)
-                camera.far,             // far (f32)
-                0.0, 0.0,               // _padding4 (vec2<f32>) to ensure 96 bytes total
-            ]);
+            cameraDataArray[0] = camera.position[0]; cameraDataArray[1] = camera.position[1]; cameraDataArray[2] = camera.position[2]; cameraDataArray[3] = 0.0;
+            cameraDataArray[4] = camera.forward[0]; cameraDataArray[5] = camera.forward[1]; cameraDataArray[6] = camera.forward[2]; cameraDataArray[7] = 0.0;
+            cameraDataArray[8] = camera.right[0]; cameraDataArray[9] = camera.right[1]; cameraDataArray[10] = camera.right[2]; cameraDataArray[11] = 0.0;
+            cameraDataArray[12] = camera.up[0]; cameraDataArray[13] = camera.up[1]; cameraDataArray[14] = camera.up[2]; cameraDataArray[15] = 0.0;
+            cameraDataArray[16] = canvas.width; cameraDataArray[17] = canvas.height;
+            cameraDataArray[18] = camera.aspect;
+            cameraDataArray[19] = camera.fovy;
+            cameraDataArray[20] = camera.near;
+            cameraDataArray[21] = camera.far;
+            cameraDataArray[22] = 0.0; cameraDataArray[23] = 0.0;
 
-            if (cameraData.length !== 24) {
-                console.error("CameraUniformBuffer size mismatch! Expected 24 floats (96 bytes), got", cameraData.length, "floats. This needs immediate attention!");
+            if (device && device.queue && cameraUBOBuffer) {
+                validateAndWriteBuffer('cameraUBOBuffer', 'updateCameraUniformBuffer', cameraUBOBuffer, 0, cameraDataArray);
             }
-
-            if (device && device.queue && cameraUBOBuffer) { device.queue.writeBuffer(cameraUBOBuffer, 0, cameraData); }
         }
 
         function updateLightUniformBuffer() {
-            // LightUBO: position (vec3), brightness (f32), size (f32), _padding (f32), color (vec3), _padding (f32)
-            // Total: 16 (pos+brightness) + 16 (size+padding) + 16 (color+padding) = 48 bytes.
-            // Align to 16 bytes: 48 bytes.
-            const lightData = new Float32Array([
-                light.position[0], light.position[1], light.position[2], light.brightness, // Position + Brightness (vec4)
-                light.size, 0.0, 0.0, 0.0, // Size + 3x Padding (vec4)
-                light.color[0], light.color[1], light.color[2], 0.0 // Color + Padding (vec4)
-            ]);
-            if (device && device.queue && lightUBOBuffer) { device.queue.writeBuffer(lightUBOBuffer, 0, lightData); }
+            // WGSL LightUniform struct expects 64 bytes (16 floats)
+            // position: vec3<f32>, pad, (16 bytes)
+            // brightness: f32, pad, pad, pad (16 bytes)
+            // size: f32, pad, pad, pad (16 bytes)
+            // color: vec3<f32>, pad (16 bytes)
+            lightDataArray[0] = light.position[0];
+            lightDataArray[1] = light.position[1];
+            lightDataArray[2] = light.position[2];
+            // lightDataArray[3] = 0.0f; // Padding
+
+            lightDataArray[4] = light.brightness;
+            // lightDataArray[5,6,7] = 0.0f; // Padding
+
+            lightDataArray[8] = light.size;
+            // lightDataArray[9,10,11] = 0.0f; // Padding
+
+            lightDataArray[12] = light.color[0];
+            lightDataArray[13] = light.color[1];
+            lightDataArray[14] = light.color[2];
+            // lightDataArray[15] = 0.0f; // Padding
+
+            // Note: Float32Array is initialized to zeros, so explicit padding assignment is not strictly needed if it's 0.
+
+            if (device && device.queue && lightUBOBuffer) {
+                validateAndWriteBuffer('lightUBOBuffer', 'updateLightUniformBuffer', lightUBOBuffer, 0, lightDataArray);
+            }
         }
 
         function updateTimeUniformBuffer(time) {
-            // TimeUniform: time: f32, frame_count: u32, _padding0: vec2<f32>,
-            // Total: 4 (f32) + 4 (u32, stored as f32 for Float32Array) + 8 (padding) = 16 bytes.
-            const timeData = new Float32Array([
-                time,
-                parseFloat(frameCount), // Store frameCount as float for now, convert to u32 in shader
-                0.0, 0.0 // Padding
-            ]);
-            if (device && device.queue && timeUBOBuffer) { device.queue.writeBuffer(timeUBOBuffer, 0, timeData); }
+            timeDataArray[0] = time;
+            timeDataArray[1] = parseFloat(frameCount);
+            // timeDataArray[2,3] are padding (already 0.0f)
+            if (device && device.queue && timeUBOBuffer) {
+                validateAndWriteBuffer('timeUBOBuffer', 'updateTimeUniformBuffer', timeUBOBuffer, 0, timeDataArray);
+            }
         }
 
         function updateWaterUniformBuffer() {
-            const waterData = new Float32Array([waveStrength, waveFrequency, waveSpeed, 0.0]); // strength, frequency, speed, padding
-            if (device && device.queue && waterUBOBuffer) { device.queue.writeBuffer(waterUBOBuffer, 0, waterData); }
+            waterDataArray[0] = waveStrength;
+            waterDataArray[1] = waveFrequency;
+            waterDataArray[2] = waveSpeed;
+            // waterDataArray[3] is padding (already 0.0f)
+            if (device && device.queue && waterUBOBuffer) {
+                validateAndWriteBuffer('waterUBOBuffer', 'updateWaterUniformBuffer', waterUBOBuffer, 0, waterDataArray);
+            }
         }
 
         function updateTerrainUniformBuffer() {
-            const terrainData = new Float32Array([terrainHeightScale, terrainFrequency, 0.0, 0.0]); // heightScale, frequency, padding, padding
-            if (device && device.queue && terrainUBOBuffer) { device.queue.writeBuffer(terrainUBOBuffer, 0, terrainData); }
+            terrainDataArray[0] = terrainHeightScale;
+            terrainDataArray[1] = terrainFrequency;
+            // terrainDataArray[2,3] are padding (already 0.0f)
+            if (device && device.queue && terrainUBOBuffer) {
+                validateAndWriteBuffer('terrainUBOBuffer', 'updateTerrainUniformBuffer', terrainUBOBuffer, 0, terrainDataArray);
+            }
         }
 
         function updateRaytracerParamsUniformBuffer() {
-            // RaytracerParams struct:
-            // maxBounces, maxRaymarchSteps, shadowSamples, dofSamples (4 u32s)
-            // numBVHNodes, numPrimitives (2 u32s)
-            // skyPreset (1 u32)
-            // warpStrength, focalDistance, apertureSize (3 f32s)
-            //
-            // Layout (careful packing):
-            // maxBounces, maxRaymarchSteps, shadowSamples, dofSamples (offset 0, size 16 bytes)
-            // numBVHNodes, numPrimitives, skyPreset, <padding> (offset 16, size 16 bytes)
-            // warpStrength, focalDistance, apertureSize, <padding> (offset 32, size 16 bytes)
-            // Total: 48 bytes (12 floats)
-            const raytracerData = new Float32Array(12); // Total 12 floats for 48 bytes
-
-            // U32 values first (indices 0-6, occupying 28 bytes)
-            raytracerData[0] = maxBounces;
-            raytracerData[1] = maxRaymarchSteps;
-            raytracerData[2] = shadowSamples;
-            raytracerData[3] = dofSamples;
-            raytracerData[4] = currentBvhResult.bvhNodes.length; // numBVHNodes
-            raytracerData[5] = spheres.length;                     // numPrimitives
-            raytracerData[6] = skyPreset;                          // skyPreset (u32)
-            raytracerData[7] = 0.0; // Padding for vec4 alignment
-            
-            // F32 values (indices 8-10, occupying 12 bytes)
-            raytracerData[8] = globalWarpStrength;
-            raytracerData[9] = camera.focalDistance;
-            raytracerData[10] = camera.apertureSize;
-            raytracerData[11] = 0.0; // Padding for final vec4 alignment
+            raytracerDataArray[0] = maxBounces;
+            raytracerDataArray[1] = maxRaymarchSteps;
+            raytracerDataArray[2] = shadowSamples;
+            raytracerDataArray[3] = dofSamples;
+            raytracerDataArray[4] = currentBvhResult.bvhNodes.length;
+            raytracerDataArray[5] = spheres.length;
+            raytracerDataArray[6] = skyPreset;
+            // raytracerDataArray[7] is padding (already 0.0f)
+            raytracerDataArray[8] = globalWarpStrength;
+            raytracerDataArray[9] = camera.focalDistance;
+            raytracerDataArray[10] = camera.apertureSize;
+            // raytracerDataArray[11] is padding (already 0.0f)
 
             if (device && device.queue && raytracerUBOBuffer) {
-                device.queue.writeBuffer(raytracerUBOBuffer, 0, raytracerData);
+                validateAndWriteBuffer('raytracerUBOBuffer', 'updateRaytracerParamsUniformBuffer', raytracerUBOBuffer, 0, raytracerDataArray);
             }
         }
 
@@ -1368,7 +1504,7 @@
                 size: sphereRawData.byteLength,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             });
-            device.queue.writeBuffer(sphereDataBuffer, 0, sphereRawData);
+            validateAndWriteBuffer('sphereDataBuffer', 'updateGPUBuffers', sphereDataBuffer, 0, sphereRawData);
             console.log(`Sphere raw data buffer recreated with ${newSpheresData.length} spheres.`);
 
             // Update current BVH result (used for GPU side)
@@ -1409,7 +1545,7 @@
                 size: bvhNodesFlat.byteLength,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             });
-            device.queue.writeBuffer(bvhNodesBuffer, 0, bvhNodesFlat);
+            validateAndWriteBuffer('bvhNodesBuffer', 'updateGPUBuffers', bvhNodesBuffer, 0, bvhNodesFlat);
             console.log(`BVH Nodes buffer recreated with ${bvhData.bvhNodes.length} nodes.`);
 
             // Recreate primitive indices buffer
@@ -1418,7 +1554,7 @@
                 size: primitiveIndicesFlat.byteLength,
                 usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
             });
-            device.queue.writeBuffer(primitiveIndicesBuffer, 0, primitiveIndicesFlat);
+            validateAndWriteBuffer('primitiveIndicesBuffer', 'updateGPUBuffers', primitiveIndicesBuffer, 0, primitiveIndicesFlat);
             console.log(`Primitive Indices buffer recreated with ${bvhData.primitiveIndices.length} indices.`);
             
             // Update the uniform buffer that holds sphere and BVH node counts
@@ -1624,14 +1760,44 @@
 
                 // --- Device Lost Handling ---
                 device.lost.then((info) => {
-                    console.error(`WebGPU device lost: ${info.message}`);
-                    displayErrorMessage(`WebGPU device lost! Reason: ${info.reason}. This often happens if the rendering is too complex for your GPU or browser. Please try reducing 'Max Bounces', 'Max Raymarch Steps', 'Shadow Samples', and 'DOF Samples' in the controls, then refresh the page.`);
+                    console.error(`WebGPU device lost: ${info.message}`, info); // Log the full info object
+                    let detailedMessage = `WebGPU device lost! Reason: ${info.reason || 'Unknown'}. This is a critical error indicating the GPU is no longer available for rendering.`;
+
+                    detailedMessage += "\n\nCommon causes & Troubleshooting (see console for more specific error codes if available):";
+                    if (info.reason === 'destroyed') {
+                        detailedMessage += "\n- The device was intentionally destroyed. If this was unexpected, it might indicate a bug in the application's cleanup logic.";
+                    } else {
+                        detailedMessage += "\n- **Scene Complexity:** The rendering task might be too demanding. This is a common cause. Try reducing settings like 'Number of Spheres', 'Max Bounces', 'Max Raymarch Steps', 'Shadow Samples', and 'DOF Samples'. These can be adjusted from the main menu settings before starting, or in the scene controls if accessible.";
+                        detailedMessage += "\n- **GPU/Driver Issues:** Outdated or unstable graphics drivers are a frequent culprit. Ensure your drivers are fully updated directly from the manufacturer (NVIDIA, AMD, Intel).";
+                        detailedMessage += "\n- **Browser Issues:** Try a different WebGPU-compatible browser (latest Chrome or Edge is recommended). Sometimes browser updates or specific flags can affect stability.";
+                        detailedMessage += "\n- **System Resources:** Insufficient system memory (RAM) or GPU memory (VRAM) can lead to device loss, especially with complex scenes.";
+                        detailedMessage += "\n- **Overheating:** Check if your GPU is overheating, which can cause instability.";
+                        detailedMessage += "\n- **Hardware Problems:** In rare cases, this could indicate a problem with the GPU hardware itself.";
+                        detailedMessage += "\n- **System Sleep/Wake:** Recovering from system sleep can sometimes cause WebGPU issues. Try restarting the browser.";
+                    }
+
+                    detailedMessage += "\n\nRecommended immediate actions:";
+                    detailedMessage += "\n1. Try refreshing the page. This might resolve temporary issues.";
+                    detailedMessage += "\n2. If the problem persists, try reducing settings via the main menu before starting the raytracer.";
+                    detailedMessage += "\n3. Restart your browser. If that doesn't help, restart your computer.";
+                    detailedMessage += "\n\nIf the issue continues, please check the console log (Press F12, go to Console) for more technical details and report them if seeking help.";
+
+                    displayErrorMessage(detailedMessage);
                     // Stop render loop
                     if (animationFrameId) {
                         cancelAnimationFrame(animationFrameId);
                         animationFrameId = null;
                     }
-                    switchView('menu'); // Go back to menu on device loss
+                    // Attempt to switch to menu view, but be aware the device is lost, so UI might be impaired.
+                    try {
+                        switchView('menu');
+                    } catch (uiError) {
+                        console.error("Error switching view after device loss:", uiError);
+                        // Fallback: display a very simple message if primary UI is broken
+                        if (document.body) {
+                            document.body.innerHTML = '<div style="color:white; padding: 20px; font-family: sans-serif; text-align: center;">Critical GPU Error: Device Lost. Please refresh or restart your browser.</div>';
+                        }
+                    }
                 });
                 // --- End Device Lost Handling ---
 
@@ -1653,8 +1819,8 @@
                 // CameraUBO buffer creation: 96 bytes (24 floats)
                 cameraUBOBuffer = device.createBuffer({ size: 96, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); 
                 
-                // LightUBO buffer creation: 48 bytes (12 floats)
-                lightUBOBuffer = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); 
+                // LightUBO buffer creation: 64 bytes (16 floats) - Corrected size
+                lightUBOBuffer = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
                 
                 timeUBOBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
                 waterUBOBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
@@ -1677,7 +1843,7 @@
                     size: renderQuadVertices.byteLength,
                     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
                 });
-                device.queue.writeBuffer(renderQuadVertexBuffer, 0, renderQuadVertices);
+                validateAndWriteBuffer('renderQuadVertexBuffer', 'initWebGPUAndCompileShaders', renderQuadVertexBuffer, 0, renderQuadVertices);
 
                 loadingStatusP.textContent = "Compiling compute shader...";
                 const computeShaderCode = `
@@ -1993,11 +2159,17 @@
                     var node_stack: array<u32, STACK_SIZE>; // Stack for BVH traversal
                     var stack_ptr: u32 = 0u;
                     var current_node_idx = 0u; // Start at root node (index 0)
+                    // Safeguard array upper bounds using max(1u, count) - 1u to prevent underflow if count is 0
+                    let max_node_idx = select(0u, raytracerUBO.numBVHNodes - 1u, raytracerUBO.numBVHNodes > 0u);
+                    let max_prim_idx = select(0u, raytracerUBO.numPrimitives - 1u, raytracerUBO.numPrimitives > 0u);
 
                     // BVH traversal loop
                     for (var iter: u32 = 0u; iter < 1024u; iter = iter + 1u) { // Max iterations to prevent infinite loops
                         if (stack_ptr >= STACK_SIZE) { break; } // Prevent stack overflow
-                        if (current_node_idx >= raytracerUBO.numBVHNodes) { break; } // Prevent out of bounds access
+
+                        // Safeguard current_node_idx before accessing bvhNodes
+                        current_node_idx = clamp(current_node_idx, 0u, max_node_idx);
+                        if (raytracerUBO.numBVHNodes == 0u) { break; } // Early exit if no BVH nodes
 
                         let node = bvhNodes[current_node_idx];
                         let t = intersect_aabb(ray_origin, inv_dir, node.minBounds, node.maxBounds);
@@ -2011,36 +2183,48 @@
                         }
 
                         if (node.isLeaf == 1u) { // If it's a leaf node
-                            for (var i: u32 = 0u; i < node.primitiveCount; i = i + 1u) {
-                                let sphere_original_idx = primitiveIndices[node.leftChildOrFirstPrimitiveIndex + i];
-                                if (sphere_original_idx >= raytracerUBO.numPrimitives) { continue; } // Safety check
-                                let s = spheres[sphere_original_idx];
-                                let d = sdSphere(ray_origin, s, warp_strength); // Calculate SDF for primitive
-                                if (d < *closest_dist) { // Update closest hit if current primitive is closer
-                                    *closest_dist = d;
-                                    *closest_sphere_idx = sphere_original_idx; // Corrected from closest_sphere_idx to closest_sphere_original_idx
+                            // Only process primitives if there are any and the buffer is valid
+                            if (raytracerUBO.numPrimitives > 0u) {
+                                for (var i: u32 = 0u; i < node.primitiveCount; i = i + 1u) {
+                                    // Safeguard primitiveIndices access
+                                    let prim_access_idx = clamp(node.leftChildOrFirstPrimitiveIndex + i, 0u, max_prim_idx);
+                                    var sphere_original_idx = primitiveIndices[prim_access_idx];
+
+                                    // Safeguard spheres access (original index from primitiveIndices should be valid, but clamp as defense)
+                                    sphere_original_idx = clamp(sphere_original_idx, 0u, max_prim_idx);
+                                    let s = spheres[sphere_original_idx];
+                                    let d = sdSphere(ray_origin, s, warp_strength);
+                                    if (d < *closest_dist) {
+                                        *closest_dist = d;
+                                        *closest_sphere_idx = sphere_original_idx;
+                                    }
                                 }
                             }
-                            if (stack_ptr == 0u) { break; } // If stack is empty, traversal finished
+                            if (stack_ptr == 0u) { break; }
                             stack_ptr = stack_ptr - 1u;
-                            current_node_idx = node_stack[stack_ptr]; // Pop next node from stack
+                            current_node_idx = node_stack[stack_ptr];
                         } else { // If it's an internal node
-                            let left_child_idx = node.leftChildOrFirstPrimitiveIndex;
-                            let right_child_idx = node.leftChildOrFirstPrimitiveIndex + 1u;
+                            var left_child_idx = node.leftChildOrFirstPrimitiveIndex;
+                            var right_child_idx = node.leftChildOrFirstPrimitiveIndex + 1u;
 
-                            // Safety checks for child indices
+                            // Safeguard child indices before use or pushing to stack
+                            left_child_idx = clamp(left_child_idx, 0u, max_node_idx);
+                            right_child_idx = clamp(right_child_idx, 0u, max_node_idx);
+
+                            // This safety check might be redundant due to clamping above, but good for defense.
                             if (left_child_idx >= raytracerUBO.numBVHNodes || right_child_idx >= raytracerUBO.numBVHNodes) { 
                                 if (stack_ptr == 0u) { break; }
                                 stack_ptr = stack_ptr - 1u;
-                                current_node_idx = node_stack[stack_ptr];
+                                current_node_idx = node_stack[stack_ptr]; // Pop and continue
                                 continue;
                             }
 
-                            // Intersect with both children
+                            // Access bvhNodes with already clamped child indices
                             let t_left = intersect_aabb(ray_origin, inv_dir, bvhNodes[left_child_idx].minBounds, bvhNodes[left_child_idx].maxBounds);
                             let t_right = intersect_aabb(ray_origin, inv_dir, bvhNodes[right_child_idx].minBounds, bvhNodes[right_child_idx].maxBounds);
 
                             // Prioritize closer child and push farther child onto stack
+                            // Child indices are already clamped from above.
                             if (t_left != -1.0f && t_right != -1.0f) { 
                                 if (t_left < t_right) {
                                     node_stack[stack_ptr] = right_child_idx; 
@@ -2051,11 +2235,11 @@
                                     stack_ptr = stack_ptr + 1u;
                                     current_node_idx = right_child_idx; 
                                 }
-                            } else if (t_left != -1.0f) { // Only left child hit
+                            } else if (t_left != -1.0f) {
                                 current_node_idx = left_child_idx;
-                            } else if (t_right != -1.0f) { // Only right child hit
+                            } else if (t_right != -1.0f) {
                                 current_node_idx = right_child_idx;
-                            } else { // Neither child hit, pop from stack
+                            } else {
                                 if (stack_ptr == 0u) { break; }
                                 stack_ptr = stack_ptr - 1u;
                                 current_node_idx = node_stack[stack_ptr]; 
@@ -2084,12 +2268,18 @@
                     }
                     
                     // Spheres SDF (via BVH traversal)
-                    var closest_sphere_dist = MAX_DIST;
-                    var closest_sphere_original_idx: u32 = 0u;
-                    bvh_scene_sdf_spheres(p, vec3<f32>(0.0f, 0.0f, 0.0f), current_time, warp_strength, &closest_sphere_dist, &closest_sphere_original_idx);
-                    if (closest_sphere_dist < min_dist) {
-                        min_dist = closest_sphere_dist;
-                        *object_id = closest_sphere_original_idx + 2u; // Sphere IDs start from 2
+                    // Only call if there are primitives and BVH nodes to avoid issues with empty buffers or zero counts
+                    if (raytracerUBO.numPrimitives > 0u && raytracerUBO.numBVHNodes > 0u) {
+                        var closest_sphere_dist = MAX_DIST;
+                        var closest_sphere_original_idx: u32 = raytracerUBO.numPrimitives; // Initialize to an out-of-bounds index
+                        bvh_scene_sdf_spheres(p, vec3<f32>(0.0f, 0.0f, 0.0f), current_time, warp_strength, &closest_sphere_dist, &closest_sphere_original_idx);
+                        if (closest_sphere_dist < min_dist) {
+                             // Ensure the returned index is valid before assigning
+                            if (closest_sphere_original_idx < raytracerUBO.numPrimitives) {
+                                min_dist = closest_sphere_dist;
+                                *object_id = closest_sphere_original_idx + 2u; // Sphere IDs start from 2
+                            }
+                        }
                     }
                     return min_dist;
                 }
@@ -2368,6 +2558,7 @@
                 // global_id_xy parameter is crucial for per-pixel random numbers
                 fn get_color_from_sub_hit(ray: Ray, current_time: f32, is_sub_ray_in_water_medium_flag: u32, global_id_xy: vec2<u32>) -> vec3<f32> {
                     let hit_info = raymarch(ray, current_time, raytracerUBO.warpStrength); 
+                    let max_prim_idx_sub = select(0u, raytracerUBO.numPrimitives - 1u, raytracerUBO.numPrimitives > 0u);
 
                     if (!hit_info.is_hit) {
                         return getSkyColor(ray.direction, raytracerUBO.skyPreset); 
@@ -2384,7 +2575,9 @@
                         let water_base_reflectivity = 0.04f; 
                         return calculateLighting(hit_info.hit_pos, hit_info.normal, -ray.direction, current_time, water_albedo, water_metallic, water_roughness, water_base_reflectivity, is_sub_ray_in_water_medium_flag, global_id_xy);
                     } else { // Hit sphere
-                        let s = spheres[hit_info.sphere_idx];
+                        if (raytracerUBO.numPrimitives == 0u) { return vec3<f32>(0.0f, 0.0f, 1.0f); /* Blue for error: no primitives */ }
+                        let safe_sphere_idx = clamp(hit_info.sphere_idx, 0u, max_prim_idx_sub); // Safeguard spheres access
+                        let s = spheres[safe_sphere_idx];
                         let albedo = s.albedo_metallic.xyz;
                         let metallic = s.albedo_metallic.w;
                         let roughness = s.pbr_properties.x;
@@ -2402,6 +2595,7 @@
                     var current_ior = 1.0f; // Current medium's Index of Refraction (IOR). Air is 1.0
                     let water_ior = 1.33f; // IOR for water
                     var is_in_water_medium_trace: u32 = 0u; // Flag for if current ray is inside water (u32 for WGSL)
+                    let max_prim_idx_trace = select(0u, raytracerUBO.numPrimitives - 1u, raytracerUBO.numPrimitives > 0u);
 
                     for (var bounce_count: u32 = 0u; bounce_count < raytracerUBO.maxBounces; bounce_count = bounce_count + 1u) {
                         let hit_info = raymarch(current_ray, current_time, raytracerUBO.warpStrength); 
@@ -2465,7 +2659,9 @@
                             }
                         }
                         else { // Hit a sphere
-                            let s = spheres[hit_info.sphere_idx];
+                            if (raytracerUBO.numPrimitives == 0u) { final_color += current_weight * vec3<f32>(1.0f,0.0f,1.0f); break; /* Magenta for error: no primitives */ }
+                            let safe_sphere_idx = clamp(hit_info.sphere_idx, 0u, max_prim_idx_trace); // Safeguard spheres access
+                            let s = spheres[safe_sphere_idx];
                             let albedo = s.albedo_metallic.xyz;
                             let metallic = s.albedo_metallic.w;
                             let roughness = s.pbr_properties.x;
@@ -2728,12 +2924,16 @@
                 updateTerrainUniformBuffer();
                 
                 // Initialize sphere data and BVH based on initial settings
-                manageSpheres(); // This now calls updateRaytracerParamsUniformBuffer and createComputeBindGroups
+                // manageSpheres internally calls updateGPUBuffers -> createComputeBindGroups.
+                manageSpheres();
                 
-                // These calls are technically redundant if manageSpheres -> updateGPUBuffers already called createComputeBindGroups,
-                // but harmless and ensures correct state.
-                createComputeBindGroups();
-                createRenderBindGroup();
+                // resizeCanvasAndAssets also calls createComputeBindGroups and createRenderBindGroup.
+                // The call to resizeCanvasAndAssets earlier should have configured textures.
+                // The call to manageSpheres should have configured sphere/BVH buffers and their compute bind groups.
+                // A final call to createRenderBindGroup here ensures it's up-to-date with any texture changes from resize.
+                // Redundant calls to createComputeBindGroups are avoided.
+                createRenderBindGroup(); // Ensures render bind group is set up with final texture views.
+
 
                 console.log("WebGPU initialization complete.");
                 loadingStatusP.textContent = "Initialization complete. Ready to render!";
@@ -2871,14 +3071,14 @@
             // --- Pop Error Scopes after submission ---
             device.popErrorScope().then((error) => { 
                 if (error) { 
-                    console.error('WebGPU Error (internal scope):', error); 
-                    displayErrorMessage(`WebGPU Internal Error: ${error.message}. This could indicate a shader problem or GPU issue.`); 
+                    console.error('WebGPU Error (internal scope during renderLoop command submission):', error);
+                    displayErrorMessage(`WebGPU Internal Error during frame submission: ${error.message}. This may indicate an issue with the GPU, drivers, or browser. Try refreshing. If persistent, check console for details.`);
                 } 
             });
             device.popErrorScope().then((error) => { 
                 if (error) { 
-                    console.error('WebGPU Error (validation scope):', error); 
-                    displayErrorMessage(`WebGPU Validation Error: ${error.message}. This means there's an issue with how WebGPU API calls are used.`); 
+                    console.error('WebGPU Error (validation scope during renderLoop command submission):', error);
+                    displayErrorMessage(`WebGPU Validation Error during frame submission: ${error.message}. This usually means the application is using the WebGPU API incorrectly (e.g., invalid buffer state, incorrect texture usage). Check console for details.`);
                 } 
             });
             // --- End New ---
@@ -2948,6 +3148,83 @@
             keysPressed[e.key] = false; 
         });
 
+        // --- UI Element References for Selected Sphere Panel ---
+        let selectedSphereControlsDiv;
+        let selectedSphereHeader;
+        let selectedAlbedoColorInput;
+        let selectedRadiusSlider;
+        let selectedRadiusValueSpan;
+        let selectedMetallicSlider;
+        let selectedMetallicValueSpan;
+        let selectedRoughnessSlider;
+        let selectedRoughnessValueSpan;
+        let selectedReflectivitySlider;
+        let selectedReflectivityValueSpan;
+        let selectedMaterialTypeSelect;
+        let selectedRefractiveIndexControlGroup;
+        let selectedRefractiveIndexSlider;
+        let selectedRefractiveIndexValueSpan;
+
+        // --- Helper function to convert RGB array to HEX color string ---
+        function rgbArrayToHex(rgbArray) {
+            if (!rgbArray || !Array.isArray(rgbArray) || rgbArray.length < 3) {
+                console.warn("Invalid rgbArray in rgbArrayToHex, defaulting to #000000. Received:", rgbArray);
+                return '#000000';
+            }
+            const r = Math.round(Math.max(0, Math.min(1, rgbArray[0])) * 255);
+            const g = Math.round(Math.max(0, Math.min(1, rgbArray[1])) * 255);
+            const b = Math.round(Math.max(0, Math.min(1, rgbArray[2])) * 255);
+            return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).padStart(6, '0');
+        }
+
+        // --- Function to update the Selected Sphere UI panel ---
+        function updateSelectedSphereUI(sphereIndex) {
+            if (!selectedSphereControlsDiv || !selectedSphereHeader || !selectedAlbedoColorInput ||
+                !selectedRadiusSlider || !selectedRadiusValueSpan || !selectedMetallicSlider ||
+                !selectedMetallicValueSpan || !selectedRoughnessSlider || !selectedRoughnessValueSpan ||
+                !selectedReflectivitySlider || !selectedReflectivityValueSpan || !selectedMaterialTypeSelect ||
+                !selectedRefractiveIndexControlGroup || !selectedRefractiveIndexSlider || !selectedRefractiveIndexValueSpan) {
+                console.error("Selected sphere UI elements not cached. Cannot update UI.");
+                if(selectedSphereControlsDiv) selectedSphereControlsDiv.style.display = 'none'; // Attempt to hide if main div exists
+                return;
+            }
+
+            if (sphereIndex === -1 || sphereIndex >= spheres.length) {
+                selectedSphereControlsDiv.style.display = 'none';
+                selectedSphereHeader.textContent = 'Selected Sphere (-1)';
+            } else {
+                const sphere = spheres[sphereIndex];
+                if (!sphere) {
+                    console.error(`Sphere at index ${sphereIndex} is undefined. Hiding UI.`);
+                    selectedSphereControlsDiv.style.display = 'none';
+                    selectedSphereHeader.textContent = 'Selected Sphere (-1)';
+                    return;
+                }
+
+                selectedSphereControlsDiv.style.display = 'block';
+                selectedSphereHeader.textContent = `Selected Sphere (${sphereIndex})`;
+
+                selectedAlbedoColorInput.value = rgbArrayToHex(sphere.color);
+                selectedRadiusSlider.value = sphere.radius;
+                selectedRadiusValueSpan.textContent = sphere.radius.toFixed(1);
+                selectedMetallicSlider.value = sphere.metallic;
+                selectedMetallicValueSpan.textContent = sphere.metallic.toFixed(2);
+                selectedRoughnessSlider.value = sphere.perPixelRoughness;
+                selectedRoughnessValueSpan.textContent = sphere.perPixelRoughness.toFixed(2);
+                selectedReflectivitySlider.value = sphere.baseReflectivity;
+                selectedReflectivityValueSpan.textContent = sphere.baseReflectivity.toFixed(2);
+                selectedMaterialTypeSelect.value = sphere.materialType;
+                selectedRefractiveIndexSlider.value = sphere.refractiveIndex;
+                selectedRefractiveIndexValueSpan.textContent = sphere.refractiveIndex.toFixed(2);
+
+                if (sphere.materialType == MATERIAL_REFRACTIVE) { // MATERIAL_REFRACTIVE is a global const (e.g., 2)
+                    selectedRefractiveIndexControlGroup.style.display = 'block';
+                } else {
+                    selectedRefractiveIndexControlGroup.style.display = 'none';
+                }
+            }
+        }
+
         // --- Initial Setup ---
         window.onload = () => {
             switchView('menu'); // Start in the main menu
@@ -2959,7 +3236,304 @@
             maxBouncesValueSpan.textContent = maxBounces;
             samplesPerPixelRange.value = shadowSamples; // Both shadow and dof samples
             samplesPerPixelValueSpan.textContent = samplesPerPixelRange.value;
+
+            // Cache selected sphere UI elements
+            selectedSphereControlsDiv = document.getElementById('selected-sphere-controls');
+            if (selectedSphereControlsDiv) { // Ensure the main container exists
+                selectedSphereHeader = selectedSphereControlsDiv.querySelector('h3');
+                selectedAlbedoColorInput = document.getElementById('selected-albedo-color');
+                selectedRadiusSlider = document.getElementById('selected-radius-slider');
+                selectedRadiusValueSpan = document.getElementById('selected-radius-value');
+                selectedMetallicSlider = document.getElementById('selected-metallic-slider');
+                selectedMetallicValueSpan = document.getElementById('selected-metallic-value');
+                selectedRoughnessSlider = document.getElementById('selected-roughness-slider');
+                selectedRoughnessValueSpan = document.getElementById('selected-roughness-value');
+                selectedReflectivitySlider = document.getElementById('selected-reflectivity-slider');
+                selectedReflectivityValueSpan = document.getElementById('selected-reflectivity-value');
+                selectedMaterialTypeSelect = document.getElementById('selected-material-type');
+                selectedRefractiveIndexControlGroup = document.getElementById('selected-refractive-index-control-group');
+                selectedRefractiveIndexSlider = document.getElementById('selected-refractive-index-slider');
+                selectedRefractiveIndexValueSpan = document.getElementById('selected-refractive-index-value');
+
+                 // Initially hide the panel
+                if (typeof updateSelectedSphereUI === "function") {
+                    updateSelectedSphereUI(-1);
+                } else {
+                    selectedSphereControlsDiv.style.display = 'none'; // Fallback if function not yet defined
+                }
+            } else {
+                console.error("Failed to find #selected-sphere-controls div during onload. Sphere editing UI will not function.");
+            }
         };
+
+        // --- Global variable for selected sphere ---
+        let globalSelectedSphereIndex = -1;
+        let highlightedSphereIndex = -1;
+        let originalHighlightedSphereColor = null;
+
+        // --- Matrix Math Placeholder Functions ---
+        // IMPORTANT: These are simplified placeholders. For a correct implementation,
+        // a proper matrix library or full math functions would be needed.
+        function getProjectionMatrix(cam) {
+            // console.warn("getProjectionMatrix: Using Placeholder Identity Matrix");
+            // Simplified perspective matrix (very basic, not a real projection matrix)
+            // For a real one, you'd use fovy, aspect, near, far.
+            const f = 1.0 / Math.tan(cam.fovy / 2);
+            const nf = 1 / (cam.near - cam.far);
+            return [ // Column-major order
+                [f / cam.aspect, 0, 0, 0],
+                [0, f, 0, 0],
+                [0, 0, (cam.far + cam.near) * nf, -1],
+                [0, 0, (2 * cam.far * cam.near) * nf, 0]
+            ];
+        }
+
+        function getViewMatrix(cam) {
+            // console.warn("getViewMatrix: Using Placeholder (simplified calculation based on camera vectors)");
+            // Simplified view matrix construction (assumes camera vectors are up-to-date)
+            const r = cam.right;
+            const u = cam.up;
+            const f = cam.forward; // WGSL uses -forward for view Z, so f here is -viewZ
+            const p = cam.position;
+
+            // This creates the inverse of the camera's world matrix
+            // (which is the view matrix)
+            return [
+                [r[0], u[0], -f[0], 0],
+                [r[1], u[1], -f[1], 0],
+                [r[2], u[2], -f[2], 0],
+                [-(r[0]*p[0] + r[1]*p[1] + r[2]*p[2]),
+                 -(u[0]*p[0] + u[1]*p[1] + u[2]*p[2]),
+                 -(-f[0]*p[0] - f[1]*p[1] - f[2]*p[2]), 1]
+            ];
+        }
+
+        function invertMatrix(m) {
+            // console.warn("invertMatrix: Using Placeholder (simplified for common camera matrices)");
+            // This is a placeholder and works for typical view/projection where bottom row is [0,0,X,Y] or [0,0,0,1]
+            // A full 4x4 matrix inversion is much more complex.
+            let result = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+
+            // Transpose the 3x3 rotation/scale part
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    result[i][j] = m[j][i];
+                }
+            }
+
+            // Handle translation part for view matrices (camera world matrix)
+            // If it's an affine transformation (like a view matrix inverse)
+            if (m[0][3] === 0 && m[1][3] === 0 && m[2][3] === 0 && m[3][3] === 1) {
+                 result[3][0] = -(m[3][0]*result[0][0] + m[3][1]*result[1][0] + m[3][2]*result[2][0]);
+                 result[3][1] = -(m[3][0]*result[0][1] + m[3][1]*result[1][1] + m[3][2]*result[2][1]);
+                 result[3][2] = -(m[3][0]*result[0][2] + m[3][1]*result[1][2] + m[3][2]*result[2][2]);
+                 result[3][3] = 1;
+            } else { // Basic inverse for projection-like (very simplified, not general)
+                result[3][3] = 1.0 / m[3][3];
+                result[0][3] = -m[0][3] * result[3][3];
+                result[1][3] = -m[1][3] * result[3][3];
+                result[2][3] = -m[2][3] * result[3][3];
+            }
+            //This is still a very simplified placeholder for general matrix inversion
+            if (m[2][3] === -1 && m[3][3] === 0) { // Looks like a projection matrix
+                const a = m[0][0], b = m[1][1], c = m[2][2], d = m[3][2], e = m[2][3]; // e is -1
+                result = [
+                    [1/a, 0, 0, 0],
+                    [0, 1/b, 0, 0],
+                    [0, 0, 0, 1/d],
+                    [0, 0, 1/e, -c/(d*e)]
+                ];
+            }
+            return result;
+        }
+
+        function multiplyVectorByMatrix(matrix, vector) {
+            // console.warn("multiplyVectorByMatrix: Using Placeholder");
+            const [x, y, z, w] = vector;
+            let result = [0,0,0,0];
+            for(let i=0; i<4; ++i){
+                result[i] = matrix[0][i] * x + matrix[1][i] * y + matrix[2][i] * z + matrix[3][i] * w;
+            }
+            return result;
+        }
+
+        function normalizeVector(vec) {
+            let len = Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+            if (len > 0.00001) { // Avoid division by zero
+                return [vec[0]/len, vec[1]/len, vec[2]/len];
+            }
+            return [0,0,0]; // Or handle as an error
+        }
+
+        // --- Vector Math Helper Functions ---
+        function subtractVectors(v1, v2) {
+            return [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]];
+        }
+
+        function dotProduct(v1, v2) {
+            return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+        }
+
+        // --- Ray-Sphere Intersection ---
+        function intersectRayWithSpheres(rayOrigin, rayDirection) {
+            let closestT = Infinity;
+            let selectedSphereIndex = -1;
+            const epsilon = 0.0001; // To avoid self-intersection or hits slightly behind origin
+
+            for (let i = 0; i < spheres.length; i++) {
+                const sphere = spheres[i];
+                const L = subtractVectors(sphere.position, rayOrigin);
+                const tca = dotProduct(L, rayDirection);
+
+                // If origin is outside sphere and sphere is behind ray, no positive t intersection.
+                // A simpler check: if tca < 0, center of sphere is behind ray origin along ray direction.
+                // We only care about forward intersections for picking.
+                if (tca < 0) {
+                    // More precise check if origin is inside or outside for this case:
+                    // If dot(L,L) > sphere.radius * sphere.radius, then origin is outside.
+                    // In that scenario, if tca < 0, sphere is entirely behind.
+                    // If origin is inside (dot(L,L) <= radius^2), then tca < 0 is still possible for one of the intersection points.
+                    // However, the standard algorithm handles this: t0 would be negative, t1 positive.
+                }
+
+                const d2 = dotProduct(L, L) - tca * tca;
+                if (d2 > sphere.radius * sphere.radius) {
+                    continue; // Ray misses the sphere
+                }
+
+                const thc = Math.sqrt(sphere.radius * sphere.radius - d2);
+                let t0 = tca - thc;
+                let t1 = tca + thc;
+
+                let t = -1;
+                if (t0 > epsilon) {
+                    t = t0;
+                } else if (t1 > epsilon) {
+                    t = t1; // Ray origin is inside the sphere, or t0 was too small
+                }
+
+                if (t > 0 && t < closestT) {
+                    closestT = t;
+                    selectedSphereIndex = i;
+                }
+            }
+
+            return {
+                hit: (selectedSphereIndex !== -1),
+                sphereIndex: selectedSphereIndex,
+                distance: closestT
+            };
+        }
+
+
+        // --- Canvas Click Listener for Ray Unprojection ---
+        canvas.addEventListener('click', (event) => {
+            if (appState !== 'scene' || !device) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            // Convert to NDC
+            const ndcX = (mouseX / canvas.clientWidth) * 2 - 1;
+            const ndcY = (1 - (mouseY / canvas.clientHeight)) * 2 - 1; // Y is inverted
+
+            console.log("NDC Coords: ", ndcX, ndcY);
+
+            // 1. Get Projection and View Matrices (using camera object)
+            // Ensure camera.aspect is up-to-date
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            const projMatrix = getProjectionMatrix(camera);
+            const viewMatrix = getViewMatrix(camera); // This is effectively the inverse of camera's world matrix
+
+            // 2. Get Inverse Projection and Inverse View Matrices
+            const invProjMatrix = invertMatrix(projMatrix);
+            const invViewMatrix = invertMatrix(viewMatrix); // This should be camera's world matrix
+
+            // 3. Unproject NDC to View Space (near plane)
+            let nearPointNDC = [ndcX, ndcY, -1, 1.0]; // Z = -1 for near plane in typical NDC
+            let nearPointCamera = multiplyVectorByMatrix(invProjMatrix, nearPointNDC);
+            if (nearPointCamera[3] !== 0) { // Perspective divide
+                nearPointCamera[0] /= nearPointCamera[3];
+                nearPointCamera[1] /= nearPointCamera[3];
+                nearPointCamera[2] /= nearPointCamera[3];
+            }
+
+            // 4. Unproject View Space to World Space
+            // Ray origin is camera position
+            const rayOrigin = [...camera.position];
+
+            // Transform nearPointCamera (now a point in camera space) to world space
+            let nearPointWorld = multiplyVectorByMatrix(invViewMatrix, [nearPointCamera[0], nearPointCamera[1], nearPointCamera[2], 1.0]);
+
+            // Calculate ray direction
+            const rayDirection = normalizeVector([
+                nearPointWorld[0] - rayOrigin[0],
+                nearPointWorld[1] - rayOrigin[1],
+                nearPointWorld[2] - rayOrigin[2]
+            ]);
+
+            lastClickedRay.origin = rayOrigin;
+            lastClickedRay.direction = rayDirection;
+
+            console.log("Clicked Ray Origin:", rayOrigin);
+            console.log("Clicked Ray Direction:", rayDirection);
+
+            const intersectionResult = intersectRayWithSpheres(lastClickedRay.origin, lastClickedRay.direction);
+            let needsGPUUpdate = false;
+
+            // Revert previous highlight if any
+            if (highlightedSphereIndex !== -1 && spheres[highlightedSphereIndex]) { // Check if sphere still exists
+                spheres[highlightedSphereIndex].color = originalHighlightedSphereColor;
+                needsGPUUpdate = true; // Color was changed back
+            }
+            highlightedSphereIndex = -1;
+            originalHighlightedSphereColor = null;
+
+            if (intersectionResult.hit) {
+                globalSelectedSphereIndex = intersectionResult.sphereIndex;
+                const selectedSphere = spheres[intersectionResult.sphereIndex];
+                console.log("Hit sphere at index:", intersectionResult.sphereIndex, "Distance:", intersectionResult.distance);
+                console.log("Selected Sphere Details:", {
+                    position: selectedSphere.position,
+                    radius: selectedSphere.radius,
+                    color: selectedSphere.color,
+                    materialType: selectedSphere.materialType,
+                    metallic: selectedSphere.metallic,
+                    roughness: selectedSphere.perPixelRoughness,
+                    baseReflectivity: selectedSphere.baseReflectivity,
+                    refractiveIndex: selectedSphere.refractiveIndex
+                });
+
+                // Apply new highlight
+                highlightedSphereIndex = intersectionResult.sphereIndex;
+                originalHighlightedSphereColor = [...selectedSphere.color]; // Store a copy
+                selectedSphere.color = [1.0, 0.0, 1.0]; // Highlight with magenta
+                needsGPUUpdate = true;
+
+            } else {
+                globalSelectedSphereIndex = -1;
+                console.log("No sphere hit.");
+                // If needsGPUUpdate was true from reverting a previous selection, but no new selection is made,
+                // the GPU update will still happen, which is correct.
+            }
+
+            if (needsGPUUpdate) {
+                if (typeof updateGPUBuffers === "function" && typeof resetAccumulation === "function") {
+                    updateGPUBuffers(spheres, currentBvhResult); // Assumes currentBvhResult is accessible
+                    resetAccumulation();
+                } else {
+                    console.error("updateGPUBuffers or resetAccumulation is not defined globally or in accessible scope.");
+                }
+            }
+            // Update the UI based on the selection
+            if (typeof updateSelectedSphereUI === "function") {
+                updateSelectedSphereUI(globalSelectedSphereIndex);
+            } else {
+                console.error("updateSelectedSphereUI is not defined globally or in accessible scope.");
+            }
+        });
+
     </script>
 </body>
 </html>
