@@ -2542,8 +2542,8 @@
                 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     // cameraUBO is from @group(0) @binding(0)
                     // outputTexture is from @group(0) @binding(6)
-                    // raytracerUBO is from @group(0) @binding(2) for skyPreset
-                    // lightUBO is used by getSkyColor for sun direction
+                    // raytracerUBO is from @group(0) @binding(2)
+                    // spheres is from @group(1) @binding(0)
 
                     let screen_width_float = cameraUBO.resolution.x;
                     let screen_height_float = cameraUBO.resolution.y;
@@ -2553,43 +2553,36 @@
                         return;
                     }
 
-                    // Ray Generation (simplified, assuming no DOF for this step)
-                    let ndc_x = (f32(global_id.x) / screen_width_float) * 2.0f - 1.0f;
-                    let ndc_y = (1.0f - f32(global_id.y) / screen_height_float) * 2.0f - 1.0f; // Invert Y
+                    var out_color = vec3<f32>(0.2f, 0.2f, 0.2f); // Default to a dim gray
 
-                    let aspect_ratio = cameraUBO.aspect;
-                    let fov_rad = cameraUBO.fovy;
+                    if (raytracerUBO.numPrimitives > 1u) { // Check if spheres[1] can exist
+                        // Read directly from spheres[1]
+                        // spheres[1].position_radius is vec4<f32>(pos_x, pos_y, pos_z, radius)
+                        let sphere_data = spheres[1].position_radius;
 
-                    let ray_x_cam = ndc_x * aspect_ratio * tan(fov_rad / 2.0f);
-                    let ray_y_cam = ndc_y * tan(fov_rad / 2.0f);
-                    let ray_z_cam = -1.0f; // Assuming focal plane at z=-1 in camera space
+                        let s1_pos_x = sphere_data.x;  // Expected 0.0 from JS for spheres[1]
+                        let s1_pos_y = sphere_data.y;  // Expected 1.0 from JS for spheres[1]
+                        let s1_radius = sphere_data.w; // Expected 1.0 from JS for spheres[1]
 
-                    let ray_dir_camera_space = normalize(vec3<f32>(ray_x_cam, ray_y_cam, ray_z_cam));
+                        // Visualize these values.
+                        // Example: Radius (1.0) -> Red channel (scaled)
+                        //          Pos Y (1.0) -> Green channel (scaled)
+                        //          Pos X (0.0) -> Blue channel (scaled)
+                        // Normalize carefully to ensure values are visible in 0.0-1.0 range.
+                        // If radius is 1.0, r_comp = 0.5.
+                        // If pos_y is 1.0, g_comp = (1.0 / 10.0) + 0.5 = 0.6.
+                        // If pos_x is 0.0, b_comp = (0.0 / 10.0) + 0.5 = 0.5.
+                        // Expected color approx (0.5, 0.6, 0.5)
+                        out_color.r = clamp(s1_radius * 0.5f, 0.0f, 1.0f);                  // Scale radius (0 to 2 maps to 0 to 1 Red)
+                        out_color.g = clamp((s1_pos_y / 10.0f) + 0.5f, 0.0f, 1.0f);         // Scale pos_y (-5 to 5 maps to 0 to 1 Green)
+                        out_color.b = clamp((s1_pos_x / 10.0f) + 0.5f, 0.0f, 1.0f);         // Scale pos_x (-5 to 5 maps to 0 to 1 Blue)
 
-                    let ideal_ray_direction_world = normalize(
-                        ray_dir_camera_space.x * cameraUBO.right.xyz +
-                        ray_dir_camera_space.y * cameraUBO.up.xyz +
-                        ray_dir_camera_space.z * cameraUBO.forward.xyz
-                    );
-
-                    let initial_ray = Ray(cameraUBO.position.xyz, ideal_ray_direction_world);
-
-                    // Get Sky Color
-                    // let sky_color_val = getSkyColor(initial_ray.direction, raytracerUBO.skyPreset);
-                    // textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sky_color_val, 1.0f));
-
-                    // Raymarch the scene
-                    let hit_info = raymarch(initial_ray, timeUBO.time, raytracerUBO.warpStrength);
-
-                    if (hit_info.is_hit && hit_info.object_id == 3u) { // 3u corresponds to spheres[1]
-                        // hit_info.sphere_idx should be 1 if object_id is 3u
-                        let sphere_albedo = spheres[hit_info.sphere_idx].albedo_metallic.xyz;
-                        textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sphere_albedo, 1.0f));
                     } else {
-                        // Fallback to sky color if no hit or not the target sphere
-                        let sky_color_val = getSkyColor(initial_ray.direction, raytracerUBO.skyPreset);
-                        textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(sky_color_val, 1.0f));
+                        // If raytracerUBO.numPrimitives <= 1, output magenta to indicate spheres[1] wasn't accessed.
+                        out_color = vec3<f32>(1.0f, 0.0f, 1.0f);
                     }
+
+                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(out_color, 1.0f));
                 }
                 `; 
 
