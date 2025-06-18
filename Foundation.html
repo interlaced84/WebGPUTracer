@@ -1596,8 +1596,8 @@
                 // CameraUBO buffer creation: 96 bytes (24 floats)
                 cameraUBOBuffer = device.createBuffer({ size: 96, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); 
                 
-                // LightUBO buffer creation: 48 bytes (12 floats)
-                lightUBOBuffer = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); 
+                // LightUBO buffer creation: 64 bytes (16 floats) to match common UBO alignment practices.
+                lightUBOBuffer = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
                 
                 timeUBOBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
                 waterUBOBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
