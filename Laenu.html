@@ -3170,23 +3170,8 @@ If the issue continues, please check the console log (Press F12, go to Console) 
         });
 
         // --- Selected Sphere UI Manager Module (IIFE) ---
-        const SelectedSphereUIManager = (function() {
-            // Private variables to cache DOM elements
-            let controlsDiv;
-            let header;
-            let albedoColorInput;
-            let radiusSlider;
-            let radiusValueSpan;
-            let metallicSlider;
-            let metallicValueSpan;
-            let roughnessSlider;
-            let roughnessValueSpan;
-            let reflectivitySlider;
-            let reflectivityValueSpan;
-            let materialTypeSelect;
-            let refractiveIndexControlGroup;
-            let refractiveIndexSlider;
-            let refractiveIndexValueSpan;
+        const SelectedSphereUIManager = (() => {
+            const uiElements = {};
 
             // Private helper function to convert RGB array to HEX color string
             function _rgbArrayToHex(rgbArray) {
@@ -3231,134 +3216,134 @@ If the issue continues, please check the console log (Press F12, go to Console) 
 
             // Public method to update the UI panel
             function updateUI(sphereIndex) {
-                if (!controlsDiv || !header || !albedoColorInput) { // Basic check if elements are cached
+                if (!uiElements.controlsDiv || !uiElements.header || !uiElements.albedoColorInput) {
                     console.error("Selected sphere UI elements not cached in SelectedSphereUIManager. Cannot update UI.");
-                    if(controlsDiv) controlsDiv.style.display = 'none';
+                    if(uiElements.controlsDiv) uiElements.controlsDiv.style.display = 'none';
                     return;
                 }
 
                 if (sphereIndex === -1 || sphereIndex >= spheres.length) {
-                    controlsDiv.style.display = 'none';
-                    header.textContent = 'Selected Sphere (-1)';
+                    uiElements.controlsDiv.style.display = 'none';
+                    uiElements.header.textContent = 'Selected Sphere (-1)';
                 } else {
                     const sphere = spheres[sphereIndex]; // Access global spheres array
                     if (!sphere) {
                         console.error(`Sphere at index ${sphereIndex} is undefined. Hiding UI.`);
-                        controlsDiv.style.display = 'none';
-                        header.textContent = 'Selected Sphere (-1)';
+                        uiElements.controlsDiv.style.display = 'none';
+                        uiElements.header.textContent = 'Selected Sphere (-1)';
                         return;
                     }
 
-                    controlsDiv.style.display = 'block';
-                    header.textContent = `Selected Sphere (${sphereIndex})`;
+                    uiElements.controlsDiv.style.display = 'block';
+                    uiElements.header.textContent = `Selected Sphere (${sphereIndex})`;
 
-                    albedoColorInput.value = _rgbArrayToHex(sphere.color);
-                    radiusSlider.value = sphere.radius;
-                    radiusValueSpan.textContent = sphere.radius.toFixed(1);
-                    metallicSlider.value = sphere.metallic;
-                    metallicValueSpan.textContent = sphere.metallic.toFixed(2);
-                    roughnessSlider.value = sphere.perPixelRoughness;
-                    roughnessValueSpan.textContent = sphere.perPixelRoughness.toFixed(2);
-                    reflectivitySlider.value = sphere.baseReflectivity;
-                    reflectivityValueSpan.textContent = sphere.baseReflectivity.toFixed(2);
-                    materialTypeSelect.value = sphere.materialType;
-                    refractiveIndexSlider.value = sphere.refractiveIndex;
-                    refractiveIndexValueSpan.textContent = sphere.refractiveIndex.toFixed(2);
+                    uiElements.albedoColorInput.value = _rgbArrayToHex(sphere.color);
+                    uiElements.radiusSlider.value = sphere.radius;
+                    uiElements.radiusValueSpan.textContent = sphere.radius.toFixed(1);
+                    uiElements.metallicSlider.value = sphere.metallic;
+                    uiElements.metallicValueSpan.textContent = sphere.metallic.toFixed(2);
+                    uiElements.roughnessSlider.value = sphere.perPixelRoughness;
+                    uiElements.roughnessValueSpan.textContent = sphere.perPixelRoughness.toFixed(2);
+                    uiElements.reflectivitySlider.value = sphere.baseReflectivity;
+                    uiElements.reflectivityValueSpan.textContent = sphere.baseReflectivity.toFixed(2);
+                    uiElements.materialTypeSelect.value = sphere.materialType;
+                    uiElements.refractiveIndexSlider.value = sphere.refractiveIndex;
+                    uiElements.refractiveIndexValueSpan.textContent = sphere.refractiveIndex.toFixed(2);
 
                     if (sphere.materialType == MATERIAL_REFRACTIVE) { // Access global MATERIAL_REFRACTIVE
-                        refractiveIndexControlGroup.style.display = 'block';
+                        uiElements.refractiveIndexControlGroup.style.display = 'block';
                     } else {
-                        refractiveIndexControlGroup.style.display = 'none';
+                        uiElements.refractiveIndexControlGroup.style.display = 'none';
                     }
                 }
             }
 
             // Public method to initialize the module
             function init() {
-                controlsDiv = document.getElementById('selected-sphere-controls');
-                if (!controlsDiv) {
+                uiElements.controlsDiv = document.getElementById('selected-sphere-controls');
+                if (!uiElements.controlsDiv) {
                     console.error("Failed to find #selected-sphere-controls div. Selected Sphere UI will not function.");
                     return;
                 }
-                header = controlsDiv.querySelector('h3');
-                albedoColorInput = document.getElementById('selected-albedo-color');
-                radiusSlider = document.getElementById('selected-radius-slider');
-                radiusValueSpan = document.getElementById('selected-radius-value');
-                metallicSlider = document.getElementById('selected-metallic-slider');
-                metallicValueSpan = document.getElementById('selected-metallic-value');
-                roughnessSlider = document.getElementById('selected-roughness-slider');
-                roughnessValueSpan = document.getElementById('selected-roughness-value');
-                reflectivitySlider = document.getElementById('selected-reflectivity-slider');
-                reflectivityValueSpan = document.getElementById('selected-reflectivity-value');
-                materialTypeSelect = document.getElementById('selected-material-type');
-                refractiveIndexControlGroup = document.getElementById('selected-refractive-index-control-group');
-                refractiveIndexSlider = document.getElementById('selected-refractive-index-slider');
-                refractiveIndexValueSpan = document.getElementById('selected-refractive-index-value');
+                uiElements.header = uiElements.controlsDiv.querySelector('h3');
+                uiElements.albedoColorInput = document.getElementById('selected-albedo-color');
+                uiElements.radiusSlider = document.getElementById('selected-radius-slider');
+                uiElements.radiusValueSpan = document.getElementById('selected-radius-value');
+                uiElements.metallicSlider = document.getElementById('selected-metallic-slider');
+                uiElements.metallicValueSpan = document.getElementById('selected-metallic-value');
+                uiElements.roughnessSlider = document.getElementById('selected-roughness-slider');
+                uiElements.roughnessValueSpan = document.getElementById('selected-roughness-value');
+                uiElements.reflectivitySlider = document.getElementById('selected-reflectivity-slider');
+                uiElements.reflectivityValueSpan = document.getElementById('selected-reflectivity-value');
+                uiElements.materialTypeSelect = document.getElementById('selected-material-type');
+                uiElements.refractiveIndexControlGroup = document.getElementById('selected-refractive-index-control-group');
+                uiElements.refractiveIndexSlider = document.getElementById('selected-refractive-index-slider');
+                uiElements.refractiveIndexValueSpan = document.getElementById('selected-refractive-index-value');
 
                 // Initially hide the panel
                 updateUI(-1);
 
                 // Event Listeners
-                if (albedoColorInput) {
-                    albedoColorInput.addEventListener('input', (event) => {
+                if (uiElements.albedoColorInput) {
+                    uiElements.albedoColorInput.addEventListener('input', (event) => {
                         if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
                         spheres[globalSelectedSphereIndex].color = _hexToRgbArray(event.target.value);
                         _handleSelectedSphereUpdate();
                     });
                 }
-                if (radiusSlider) {
-                    radiusSlider.addEventListener('input', (event) => {
+                if (uiElements.radiusSlider) {
+                    uiElements.radiusSlider.addEventListener('input', (event) => {
                         if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
                         const value = validateAndClampInput(event, true); // Uses global validateAndClampInput
                         spheres[globalSelectedSphereIndex].radius = value;
-                        if(radiusValueSpan) radiusValueSpan.textContent = value.toFixed(1);
+                        if(uiElements.radiusValueSpan) uiElements.radiusValueSpan.textContent = value.toFixed(1);
                         _handleSelectedSphereUpdate();
                     });
                 }
-                if (metallicSlider) {
-                    metallicSlider.addEventListener('input', (event) => {
+                if (uiElements.metallicSlider) {
+                    uiElements.metallicSlider.addEventListener('input', (event) => {
                         if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
                         const value = validateAndClampInput(event, true);
                         spheres[globalSelectedSphereIndex].metallic = value;
-                        if(metallicValueSpan) metallicValueSpan.textContent = value.toFixed(2);
+                        if(uiElements.metallicValueSpan) uiElements.metallicValueSpan.textContent = value.toFixed(2);
                         _handleSelectedSphereUpdate();
                     });
                 }
-                 if (roughnessSlider) {
-                    roughnessSlider.addEventListener('input', (event) => {
+                 if (uiElements.roughnessSlider) {
+                    uiElements.roughnessSlider.addEventListener('input', (event) => {
                         if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
                         const value = validateAndClampInput(event, true);
                         spheres[globalSelectedSphereIndex].perPixelRoughness = value;
-                        if(roughnessValueSpan) roughnessValueSpan.textContent = value.toFixed(2);
+                        if(uiElements.roughnessValueSpan) uiElements.roughnessValueSpan.textContent = value.toFixed(2);
                         _handleSelectedSphereUpdate();
                     });
                 }
-                if (reflectivitySlider) {
-                    reflectivitySlider.addEventListener('input', (event) => {
+                if (uiElements.reflectivitySlider) {
+                    uiElements.reflectivitySlider.addEventListener('input', (event) => {
                         if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
                         const value = validateAndClampInput(event, true);
                         spheres[globalSelectedSphereIndex].baseReflectivity = value;
-                        if(reflectivityValueSpan) reflectivityValueSpan.textContent = value.toFixed(2);
+                        if(uiElements.reflectivityValueSpan) uiElements.reflectivityValueSpan.textContent = value.toFixed(2);
                         _handleSelectedSphereUpdate();
                     });
                 }
-                if (materialTypeSelect) {
-                    materialTypeSelect.addEventListener('change', (event) => {
+                if (uiElements.materialTypeSelect) {
+                    uiElements.materialTypeSelect.addEventListener('change', (event) => {
                         if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
                         const value = parseInt(event.target.value);
                         spheres[globalSelectedSphereIndex].materialType = value;
-                        if (refractiveIndexControlGroup) {
-                            refractiveIndexControlGroup.style.display = (value === MATERIAL_REFRACTIVE) ? 'block' : 'none';
+                        if (uiElements.refractiveIndexControlGroup) {
+                            uiElements.refractiveIndexControlGroup.style.display = (value === MATERIAL_REFRACTIVE) ? 'block' : 'none';
                         }
                         _handleSelectedSphereUpdate();
                     });
                 }
-                if (selectedRefractiveIndexSlider) { // Corrected variable name
-                    selectedRefractiveIndexSlider.addEventListener('input', (event) => {
+                if (uiElements.refractiveIndexSlider) {
+                    uiElements.refractiveIndexSlider.addEventListener('input', (event) => {
                         if (globalSelectedSphereIndex === -1 || !spheres[globalSelectedSphereIndex]) return;
                         const value = validateAndClampInput(event, true);
                         spheres[globalSelectedSphereIndex].refractiveIndex = value;
-                        if(refractiveIndexValueSpan) refractiveIndexValueSpan.textContent = value.toFixed(2); // Corrected variable name
+                        if(uiElements.refractiveIndexValueSpan) uiElements.refractiveIndexValueSpan.textContent = value.toFixed(2);
                         _handleSelectedSphereUpdate();
                     });
                 }
