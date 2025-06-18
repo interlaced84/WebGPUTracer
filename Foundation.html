@@ -2475,6 +2475,7 @@
                 }
 
                 // Main compute shader entry point. Dispatches one workgroup per pixel.
+                /*
                 @compute @workgroup_size(8, 8)
                 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     let screen_width = cameraUBO.resolution.x; 
@@ -2546,6 +2547,27 @@
                     let new_accumulated_color = mix(previous_color_vec4.rgb, final_color_per_pixel, blend_factor);
                     
                     textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(new_accumulated_color, 1.0f));
+                }
+                */
+
+                @compute @workgroup_size(8, 8)
+                fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+                    // cameraUBO is from @group(0) @binding(0)
+                    // outputTexture is from @group(0) @binding(6)
+
+                    let screen_width_float = cameraUBO.resolution.x;
+                    let screen_height_float = cameraUBO.resolution.y;
+
+                    // Bounds check to prevent writing outside the texture
+                    if (global_id.x >= u32(screen_width_float) || global_id.y >= u32(screen_height_float)) {
+                        return;
+                    }
+
+                    let r_comp = f32(global_id.x) / screen_width_float;
+                    let g_comp = f32(global_id.y) / screen_height_float;
+                    let b_comp = 0.25f; // A constant blue component for variety
+
+                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(r_comp, g_comp, b_comp, 1.0f));
                 }
                 `; 
 
