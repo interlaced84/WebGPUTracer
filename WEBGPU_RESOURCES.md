@@ -83,3 +83,34 @@ WebGPU Troubleshooting Resources (ID: webgpu-troubleshooting-resources)
 *   **"Offset X is not a multiple of Y":** Buffer offsets or data sizes often need to be aligned (e.g., to 4 or 256 bytes for UBOs depending on hardware).
 
 *(Remember to keep this updated with new valuable resources as they are found.)*
+
+
+## Real-time Volumetric Clouds (C/OpenGL Example)
+
+*   **Link:** [`https://raw.githubusercontent.com/Jaysmito101/cgl/main/examples/c/realtime_volumetric_clouds.c`](https://raw.githubusercontent.com/Jaysmito101/cgl/main/examples/c/realtime_volumetric_clouds.c)
+*   **Source:** Jaysmito101/cgl GitHub Repository
+*   **Description:** A C language example using OpenGL (via CGL library) to render real-time volumetric clouds. It demonstrates a common approach involving raymarching through a volume defined by 3D noise textures.
+*   **Key Concepts/Techniques:**
+    *   Volumetric raymarching for cloud rendering.
+    *   Density sampling from 3D noise textures (combines Perlin and Worley noise for shape and detail).
+    *   Use of Curl noise for potential animation/distortion effects.
+    *   Henyey-Greenstein phase function for simulating light scattering within clouds.
+    *   Calculation of light absorption and transmittance through the cloud volume.
+    *   Generation of 3D noise textures (shape, detail, curl) using GLSL compute shaders.
+    *   Multi-pass rendering: opaque scene pass (providing depth for occlusion) followed by a cloud rendering pass composited on top.
+*   **Relevance/Potential for Our WebGPU Project:**
+    *   Provides a strong algorithmic and conceptual base for implementing a volumetric cloud feature.
+    *   Noise generation techniques (Perlin, Worley, Curl) are translatable to WGSL compute shaders. Our current Perlin noise could be augmented or replaced by these more specialized versions for clouds.
+    *   The raymarching logic, density sampling, and lighting model (phase function, transmittance) for participating media can be adapted to WGSL for a cloud rendering pass.
+    *   The example lists many controllable parameters (density, scale, absorption, phase parameters, noise weights, animation speed, etc.) which would be valuable to expose in our UI.
+    *   Demonstrates a practical approach to compositing volumetric effects with an existing opaque scene using depth information.
+
+
+## Official WebGPU Samples Repository
+
+*   **Link:** [`https://github.com/webgpu/webgpu-samples`](https://github.com/webgpu/webgpu-samples)
+*   **Live Samples:** [`https://webgpu.github.io/webgpu-samples/`](https://webgpu.github.io/webgpu-samples/)
+*   **Description:** The official collection of samples and demonstrations for the WebGPU API, maintained by the WebGPU working group. Primarily TypeScript with WGSL shaders.
+*   **Key Offerings:** Authoritative API usage examples, diverse WGSL shaders, TypeScript logic for various graphics techniques.
+*   **Relevance:** Primary reference for correct API patterns, WGSL inspiration, and learning specific WebGPU features.
+*   **Action:** Requires user browsing of `samples/` and `shaders/` subdirectories to identify specific files for detailed analysis by the AI.
