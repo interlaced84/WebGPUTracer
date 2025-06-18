@@ -2034,7 +2034,7 @@
                     return min_dist;
                     */
                     *object_id = 3u; // Object ID for spheres[1] (1u + 2u)
-                    return 0.1f;    // Return a small, positive distance
+                    return 0.0f;    // Return 0.0f. Since MIN_DIST is 0.0001f, 0.0f < MIN_DIST will be true.
                 }
 
                 // Estimates the normal at a point using the SDF (finite difference)
