@@ -3652,41 +3652,54 @@ If the issue continues, please check the console log (Press F12, go to Console) 
             // Convert to NDC
             const ndcX = (mouseX / canvas.clientWidth) * 2 - 1;
             const ndcY = (1 - (mouseY / canvas.clientHeight)) * 2 - 1; // Y is inverted
-
-            console.log("NDC Coords: ", ndcX, ndcY);
+       console.log("--- Ray Unprojection Start ---"); // ADD THIS
+       console.log("Mouse Coords (relative to canvas):", mouseX, mouseY); // ADD THIS
+       console.log("NDC Coords (X, Y): ", ndcX, ndcY);
 
             // Ensure camera vectors and aspect ratio are up-to-date
-            calculateCameraVectors(); // Updates camera.forward, camera.up, camera.right
+       calculateCameraVectors();
             camera.aspect = canvas.clientWidth / canvas.clientHeight;
+       console.log("Camera Aspect:", camera.aspect, "FoVy:", camera.fovy, "Near:", camera.near, "Far:", camera.far); // ADD THIS
+       console.log("Camera Position:", camera.position); // ADD THIS
+       console.log("Camera Forward:", camera.forward); // ADD THIS
+       console.log("Camera Up:", camera.up); // ADD THIS
 
             // 1. Get Projection and View Matrices
             const projectionMatrix = getProjectionMatrix(camera.fovy, camera.aspect, camera.near, camera.far);
             const viewMatrix = getViewMatrix(camera.position, camera.forward, camera.up);
+       console.log("Projection Matrix:", projectionMatrix); // ADD THIS
+       console.log("View Matrix:", viewMatrix); // ADD THIS
 
             // 2. Get Inverse Projection and Inverse View Matrices
             const invProjectionMatrix = invertMatrix(projectionMatrix);
-            if (!invProjectionMatrix || invProjectionMatrix[0] === undefined ) { // Basic check if inversion failed (e.g. returned identity on error)
+       const invViewMatrix = invertMatrix(viewMatrix);
+       console.log("Inverse Projection Matrix:", invProjectionMatrix); // ADD THIS
+       console.log("Inverse View Matrix:", invViewMatrix); // ADD THIS
+
+       if (!invProjectionMatrix || invProjectionMatrix[0] === undefined ) {
                 console.error("Failed to invert projection matrix. Aborting ray generation.");
                 return;
             }
-            const invViewMatrix = invertMatrix(viewMatrix);
-             if (!invViewMatrix || invViewMatrix[0] === undefined) {
+       if (!invViewMatrix || invViewMatrix[0] === undefined) {
                 console.error("Failed to invert view matrix. Aborting ray generation.");
                 return;
             }
 
             // 3. Unproject NDC to View Space
             // For WebGPU NDC Z is [0, 1], so near plane is at Z = 0.
-            const nearPointNDC = [ndcX, ndcY, 0.0, 1.0];
+       const nearPointNDC = [ndcX, ndcY, 0.0, 1.0];
+       console.log("Near Point (NDC):", nearPointNDC); // ADD THIS
 
             let nearPointCamera = multiplyVectorByMatrix(invProjectionMatrix, nearPointNDC);
+       console.log("Near Point (Camera Before Divide):", nearPointCamera); // ADD THIS
 
             // Perform perspective divide
             if (nearPointCamera[3] !== 0) {
                 nearPointCamera[0] /= nearPointCamera[3];
                 nearPointCamera[1] /= nearPointCamera[3];
                 nearPointCamera[2] /= nearPointCamera[3];
-                // nearPointCamera[3] = 1.0; // After division, W is 1
+           nearPointCamera[3] = 1.0; // Set W to 1 after perspective divide
+           console.log("Near Point (Camera After Divide):", nearPointCamera); // ADD THIS
             } else {
                 console.error("Ray generation: W component is zero after invProjectionMatrix multiplication. Cannot perform perspective divide.");
                 return;
@@ -3695,7 +3708,7 @@ If the issue continues, please check the console log (Press F12, go to Console) 
             // 4. Unproject View Space to World Space
             const pointToTransformToWorld = [nearPointCamera[0], nearPointCamera[1], nearPointCamera[2], 1.0];
             const nearPointWorld = multiplyVectorByMatrix(invViewMatrix, pointToTransformToWorld);
-            // nearPointWorld is now a 4-component vector [x,y,z,w]. For a point, w should be 1.
+       console.log("Near Point (World Before W-Normalize, if any):", nearPointWorld); // ADD THIS
 
             // Ray origin is the camera's position in world space.
             const worldRayOrigin = [...camera.position];
@@ -3713,6 +3726,7 @@ If the issue continues, please check the console log (Press F12, go to Console) 
 
             console.log("Clicked Ray Origin (World):", worldRayOrigin);
             console.log("Clicked Ray Direction (World):", finalRayDirection);
+       console.log("--- Ray Unprojection End ---"); // ADD THIS
 
             const intersectionResult = intersectRayWithSpheres(lastClickedRay.origin, lastClickedRay.direction);
             let needsGPUUpdate = false;
