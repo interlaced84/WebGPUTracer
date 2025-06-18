@@ -1361,8 +1361,7 @@
             
             // Update the uniform buffer that holds sphere and BVH node counts
             updateRaytracerParamsUniformBuffer();
-            // Recreate compute bind groups as storage buffers might have changed
-            createComputeBindGroups(); 
+            // createComputeBindGroups(); // Removed: To be called explicitly after all resources are ready
         }
 
         function manageSpheres() {
@@ -1479,6 +1478,8 @@
 
         // Optimized onResize handler
         function resizeCanvasAndAssets() {
+            if (!device || !context || !sphereDataBuffer) return; // Defer if called too early during init
+
             // Apply device pixel ratio for sharper image on high-DPI displays
             let newWidth = window.innerWidth * window.devicePixelRatio;
             let newHeight = window.innerHeight * window.devicePixelRatio;
@@ -2658,25 +2659,26 @@
 
                 loadingStatusP.textContent = "Render pipeline created. Resizing canvas and preparing assets...";
 
-                // --- IMPORTANT CHANGE: Moved resizeCanvasAndAssets() here ---
-                // Now that both computePipeline and renderPipeline are defined,
-                // resizeCanvasAndAssets can successfully create bind groups.
-                resizeCanvasAndAssets(); 
-                // --- END IMPORTANT CHANGE ---
+                loadingStatusP.textContent = "Initializing scene data (UBOs, Spheres, BVH)...";
 
-                loadingStatusP.textContent = "Initializing scene data...";
+                // h. Crucially, call manageSpheres() here.
+                manageSpheres(); // This populates JS sphere data, builds BVH, calls updateGPUBuffers (which creates sphere/BVH GPU buffers & updates raytracerUBO)
+
+                // i. Update other UBOs
                 updateCameraUniformBuffer();
-                light.color = hsvToRgb(sunHue); // Set initial light color based on initial sunHue
+                light.color = hsvToRgb(sunHue);
                 updateLightUniformBuffer();
                 updateTimeUniformBuffer(0);
-                // updateWaterUniformBuffer(); // Bypassed for simple sphere test
-                // updateTerrainUniformBuffer(); // Bypassed for simple sphere test
+                // updateWaterUniformBuffer(); // Still bypassed
+                // updateTerrainUniformBuffer(); // Still bypassed
+
+                // j. Call resizeCanvasAndAssets().
+                // It should now pass the guard as sphereDataBuffer is created.
+                // This will handle initial texture sizing based on canvas and create initial bind groups.
+                resizeCanvasAndAssets();
                 
-                // Initialize sphere data and BVH based on initial settings
-                manageSpheres(); // This now calls updateRaytracerParamsUniformBuffer and createComputeBindGroups
-                
-                // These calls are technically redundant if manageSpheres -> updateGPUBuffers already called createComputeBindGroups,
-                // but harmless and ensures correct state.
+                // k. For robustness, and as the final authoritative calls for initial setup, directly call createComputeBindGroups() and then createRenderBindGroup().
+                // This ensures they use the absolute latest state of all resources.
                 createComputeBindGroups();
                 createRenderBindGroup();
 
