@@ -1,4 +1,3 @@
-// Iteration: 1 - Sphere selection and real-time property editing (UI functional, GPU updated).
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -529,6 +528,7 @@
     </div>
     <div id="error-message-display" class="error-message"></div>
     <script type="text/javascript">
+// Iteration: 1 - Sphere selection and real-time property editing (UI functional, GPU updated).
         // --- IMPORTANT: Core Directives & Troubleshooting Log References ---
         // This section ensures adherence to the core development principles and leverages
         // our historical knowledge base for robust, high-quality code.
@@ -722,74 +722,139 @@
         // UI Elements (App State Management)
         let appState = 'menu'; // Initial state is the menu
         const appContainer = document.getElementById('app-container');
+        if (!appContainer) { console.error('Failed to find DOM element: app-container'); }
         const menuView = document.getElementById('menu-view');
+        if (!menuView) { console.error('Failed to find DOM element: menu-view'); }
         const loadingView = document.getElementById('loading-view');
+        if (!loadingView) { console.error('Failed to find DOM element: loading-view'); }
         const sceneView = document.getElementById('scene-view');
+        if (!sceneView) { console.error('Failed to find DOM element: scene-view'); }
         const settingsPanel = document.getElementById('settings-panel');
+        if (!settingsPanel) { console.error('Failed to find DOM element: settings-panel'); }
         const loadingStatusP = document.getElementById('loading-status');
+        if (!loadingStatusP) { console.error('Failed to find DOM element: loading-status'); }
         const errorMessageDisplay = document.getElementById('error-message-display');
+        if (!errorMessageDisplay) { console.error('Failed to find DOM element: error-message-display'); }
 
         // Main Menu UI elements
         const startButton = document.getElementById('start-button');
+        if (!startButton) { console.error('Failed to find DOM element: start-button'); }
         const settingsButton = document.getElementById('settings-button');
+        if (!settingsButton) { console.error('Failed to find DOM element: settings-button'); }
         const qualityPresetSelect = document.getElementById('quality-preset');
+        if (!qualityPresetSelect) { console.error('Failed to find DOM element: quality-preset'); }
         const numSpheresRange = document.getElementById('num-spheres');
+        if (!numSpheresRange) { console.error('Failed to find DOM element: num-spheres'); }
         const numSpheresValueSpan = document.getElementById('num-spheres-value');
+        if (!numSpheresValueSpan) { console.error('Failed to find DOM element: num-spheres-value'); }
         const maxBouncesRange = document.getElementById('max-bounces');
+        if (!maxBouncesRange) { console.error('Failed to find DOM element: max-bounces'); }
         const maxBouncesValueSpan = document.getElementById('max-bounces-value');
+        if (!maxBouncesValueSpan) { console.error('Failed to find DOM element: max-bounces-value'); }
         const samplesPerPixelRange = document.getElementById('samples-per-pixel');
+        if (!samplesPerPixelRange) { console.error('Failed to find DOM element: samples-per-pixel'); }
         const samplesPerPixelValueSpan = document.getElementById('samples-per-pixel-value');
+        if (!samplesPerPixelValueSpan) { console.error('Failed to find DOM element: samples-per-pixel-value'); }
         const applySettingsButton = document.getElementById('apply-settings-button');
+        if (!applySettingsButton) { console.error('Failed to find DOM element: apply-settings-button'); }
         const backToMenuButton = document.getElementById('back-to-menu-button');
+        if (!backToMenuButton) { console.error('Failed to find DOM element: back-to-menu-button'); }
         const backToMainMenuFromSceneButton = document.getElementById('back-to-main-menu-from-scene');
+        if (!backToMainMenuFromSceneButton) { console.error('Failed to find DOM element: back-to-main-menu-from-scene'); }
 
         // Scene Controls UI elements
         const canvas = document.getElementById('webgpu-canvas'); // Needs to be accessible globally
+        if (!canvas) { console.error('Failed to find DOM element: webgpu-canvas'); }
         const sceneControlsPanel = document.getElementById('scene-controls-panel');
+        if (!sceneControlsPanel) { console.error('Failed to find DOM element: scene-controls-panel'); }
         const togglePanelButton = document.getElementById('toggle-panel-button');
+        if (!togglePanelButton) { console.error('Failed to find DOM element: toggle-panel-button'); }
         const sphereCountSlider = document.getElementById('sphereCountSlider');
+        if (!sphereCountSlider) { console.error('Failed to find DOM element: sphereCountSlider'); }
         const sphereCountValue = document.getElementById('sphereCountValue');
+        if (!sphereCountValue) { console.error('Failed to find DOM element: sphereCountValue'); }
         const lightXSlider = document.getElementById('lightXSlider');
+        if (!lightXSlider) { console.error('Failed to find DOM element: lightXSlider'); }
         const lightYSlider = document.getElementById('lightYSlider');
+        if (!lightYSlider) { console.error('Failed to find DOM element: lightYSlider'); }
         const lightZSlider = document.getElementById('lightZSlider');
+        if (!lightZSlider) { console.error('Failed to find DOM element: lightZSlider'); }
         const lightBrightnessSlider = document.getElementById('lightBrightnessSlider');
+        if (!lightBrightnessSlider) { console.error('Failed to find DOM element: lightBrightnessSlider'); }
         const lightSizeSlider = document.getElementById('lightSizeSlider');
+        if (!lightSizeSlider) { console.error('Failed to find DOM element: lightSizeSlider'); }
         const lightXValue = document.getElementById('lightXValue');
+        if (!lightXValue) { console.error('Failed to find DOM element: lightXValue'); }
         const lightYValue = document.getElementById('lightYValue');
+        if (!lightYValue) { console.error('Failed to find DOM element: lightYValue'); }
         const lightZValue = document.getElementById('lightZValue');
+        if (!lightZValue) { console.error('Failed to find DOM element: lightZValue'); }
         const lightBrightnessValue = document.getElementById('lightBrightnessValue');
+        if (!lightBrightnessValue) { console.error('Failed to find DOM element: lightBrightnessValue'); }
         const lightSizeValue = document.getElementById('lightSizeValue');
+        if (!lightSizeValue) { console.error('Failed to find DOM element: lightSizeValue'); }
         const sunHueSlider = document.getElementById('sunHueSlider'); // New
+        if (!sunHueSlider) { console.error('Failed to find DOM element: sunHueSlider'); }
         const sunHueValueSpan = document.getElementById('sunHueValue'); // New
+        if (!sunHueValueSpan) { console.error('Failed to find DOM element: sunHueValue'); }
         const waveStrengthSlider = document.getElementById('waveStrengthSlider');
+        if (!waveStrengthSlider) { console.error('Failed to find DOM element: waveStrengthSlider'); }
         const waveFrequencySlider = document.getElementById('waveFrequencySlider');
+        if (!waveFrequencySlider) { console.error('Failed to find DOM element: waveFrequencySlider'); }
         const waveSpeedSlider = document.getElementById('waveSpeedSlider');
+        if (!waveSpeedSlider) { console.error('Failed to find DOM element: waveSpeedSlider'); }
         const waveStrengthValue = document.getElementById('waveStrengthValue');
+        if (!waveStrengthValue) { console.error('Failed to find DOM element: waveStrengthValue'); }
         const waveFrequencyValue = document.getElementById('waveFrequencyValue');
+        if (!waveFrequencyValue) { console.error('Failed to find DOM element: waveFrequencyValue'); }
         const waveSpeedValue = document.getElementById('waveSpeedValue');
+        if (!waveSpeedValue) { console.error('Failed to find DOM element: waveSpeedValue'); }
         const refractiveIndexSlider = document.getElementById('refractiveIndexSlider');
+        if (!refractiveIndexSlider) { console.error('Failed to find DOM element: refractiveIndexSlider'); }
         const refractiveIndexValue = document.getElementById('refractiveIndexValue');
+        if (!refractiveIndexValue) { console.error('Failed to find DOM element: refractiveIndexValue'); }
         const warpStrengthSlider = document.getElementById('warpStrengthSlider');
+        if (!warpStrengthSlider) { console.error('Failed to find DOM element: warpStrengthSlider'); }
         const warpStrengthValue = document.getElementById('warpStrengthValue');
+        if (!warpStrengthValue) { console.error('Failed to find DOM element: warpStrengthValue'); }
         const terrainHeightSlider = document.getElementById('terrainHeightSlider');
+        if (!terrainHeightSlider) { console.error('Failed to find DOM element: terrainHeightSlider'); }
         const terrainHeightValue = document.getElementById('terrainHeightValue');
+        if (!terrainHeightValue) { console.error('Failed to find DOM element: terrainHeightValue'); }
         const terrainFrequencySlider = document.getElementById('terrainFrequencySlider');
+        if (!terrainFrequencySlider) { console.error('Failed to find DOM element: terrainFrequencySlider'); }
         const terrainFrequencyValue = document.getElementById('terrainFrequencyValue');
+        if (!terrainFrequencyValue) { console.error('Failed to find DOM element: terrainFrequencyValue'); }
         const bouncesSlider = document.getElementById('bouncesSlider');
+        if (!bouncesSlider) { console.error('Failed to find DOM element: bouncesSlider'); }
         const bouncesValue = document.getElementById('bouncesValue');
+        if (!bouncesValue) { console.error('Failed to find DOM element: bouncesValue'); }
         const raymarchStepsSlider = document.getElementById('raymarchStepsSlider');
+        if (!raymarchStepsSlider) { console.error('Failed to find DOM element: raymarchStepsSlider'); }
         const raymarchStepsValue = document.getElementById('raymarchStepsValue');
+        if (!raymarchStepsValue) { console.error('Failed to find DOM element: raymarchStepsValue'); }
         const shadowSamplesSlider = document.getElementById('shadowSamplesSlider');
+        if (!shadowSamplesSlider) { console.error('Failed to find DOM element: shadowSamplesSlider'); }
         const shadowSamplesValue = document.getElementById('shadowSamplesValue');
+        if (!shadowSamplesValue) { console.error('Failed to find DOM element: shadowSamplesValue'); }
         const dofSamplesSlider = document.getElementById('dofSamplesSlider');
+        if (!dofSamplesSlider) { console.error('Failed to find DOM element: dofSamplesSlider'); }
         const dofSamplesValue = document.getElementById('dofSamplesValue');
+        if (!dofSamplesValue) { console.error('Failed to find DOM element: dofSamplesValue'); }
         const focalDistanceSlider = document.getElementById('focalDistanceSlider');
+        if (!focalDistanceSlider) { console.error('Failed to find DOM element: focalDistanceSlider'); }
         const focalDistanceValue = document.getElementById('focalDistanceValue');
+        if (!focalDistanceValue) { console.error('Failed to find DOM element: focalDistanceValue'); }
         const apertureSizeSlider = document.getElementById('apertureSizeSlider');
+        if (!apertureSizeSlider) { console.error('Failed to find DOM element: apertureSizeSlider'); }
         const apertureSizeValue = document.getElementById('apertureSizeValue');
+        if (!apertureSizeValue) { console.error('Failed to find DOM element: apertureSizeValue'); }
         const sunnyDayButton = document.getElementById('sunnyDayButton');
+        if (!sunnyDayButton) { console.error('Failed to find DOM element: sunnyDayButton'); }
         const duskButton = document.getElementById('duskButton');
+        if (!duskButton) { console.error('Failed to find DOM element: duskButton'); }
         const fpsCounterElement = document.getElementById('fps-counter');
+        if (!fpsCounterElement) { console.error('Failed to find DOM element: fps-counter'); }
 
         // Define a maximum dimension for the canvas to prevent excessive GPU memory usage
         const MAX_CANVAS_DIMENSION = 1920;
@@ -3262,23 +3327,37 @@ If the issue continues, please check the console log (Press F12, go to Console) 
             function init() {
                 uiElements.controlsDiv = document.getElementById('selected-sphere-controls');
                 if (!uiElements.controlsDiv) {
-                    console.error("Failed to find #selected-sphere-controls div. Selected Sphere UI will not function.");
-                    return;
+                    console.error("Failed to find DOM element: selected-sphere-controls. Selected Sphere UI will not function.");
+                    return; // Exit init if main container for this UI is missing
                 }
                 uiElements.header = uiElements.controlsDiv.querySelector('h3');
+                if (!uiElements.header) { console.error('Failed to find DOM element: selected-sphere-controls > h3'); }
                 uiElements.albedoColorInput = document.getElementById('selected-albedo-color');
+                if (!uiElements.albedoColorInput) { console.error('Failed to find DOM element: selected-albedo-color'); }
                 uiElements.radiusSlider = document.getElementById('selected-radius-slider');
+                if (!uiElements.radiusSlider) { console.error('Failed to find DOM element: selected-radius-slider'); }
                 uiElements.radiusValueSpan = document.getElementById('selected-radius-value');
+                if (!uiElements.radiusValueSpan) { console.error('Failed to find DOM element: selected-radius-value'); }
                 uiElements.metallicSlider = document.getElementById('selected-metallic-slider');
+                if (!uiElements.metallicSlider) { console.error('Failed to find DOM element: selected-metallic-slider'); }
                 uiElements.metallicValueSpan = document.getElementById('selected-metallic-value');
+                if (!uiElements.metallicValueSpan) { console.error('Failed to find DOM element: selected-metallic-value'); }
                 uiElements.roughnessSlider = document.getElementById('selected-roughness-slider');
+                if (!uiElements.roughnessSlider) { console.error('Failed to find DOM element: selected-roughness-slider'); }
                 uiElements.roughnessValueSpan = document.getElementById('selected-roughness-value');
+                if (!uiElements.roughnessValueSpan) { console.error('Failed to find DOM element: selected-roughness-value'); }
                 uiElements.reflectivitySlider = document.getElementById('selected-reflectivity-slider');
+                if (!uiElements.reflectivitySlider) { console.error('Failed to find DOM element: selected-reflectivity-slider'); }
                 uiElements.reflectivityValueSpan = document.getElementById('selected-reflectivity-value');
+                if (!uiElements.reflectivityValueSpan) { console.error('Failed to find DOM element: selected-reflectivity-value'); }
                 uiElements.materialTypeSelect = document.getElementById('selected-material-type');
+                if (!uiElements.materialTypeSelect) { console.error('Failed to find DOM element: selected-material-type'); }
                 uiElements.refractiveIndexControlGroup = document.getElementById('selected-refractive-index-control-group');
+                if (!uiElements.refractiveIndexControlGroup) { console.error('Failed to find DOM element: selected-refractive-index-control-group'); }
                 uiElements.refractiveIndexSlider = document.getElementById('selected-refractive-index-slider');
+                if (!uiElements.refractiveIndexSlider) { console.error('Failed to find DOM element: selected-refractive-index-slider'); }
                 uiElements.refractiveIndexValueSpan = document.getElementById('selected-refractive-index-value');
+                if (!uiElements.refractiveIndexValueSpan) { console.error('Failed to find DOM element: selected-refractive-index-value'); }
 
                 // Initially hide the panel
                 updateUI(-1);
@@ -3362,12 +3441,12 @@ If the issue continues, please check the console log (Press F12, go to Console) 
             switchView('menu'); // Start in the main menu
 
             // Set initial values for menu sliders based on global defaults
-            numSpheresRange.value = targetSphereCount;
-            numSpheresValueSpan.textContent = targetSphereCount;
-            maxBouncesRange.value = maxBounces;
-            maxBouncesValueSpan.textContent = maxBounces;
-            samplesPerPixelRange.value = shadowSamples; // Both shadow and dof samples
-            samplesPerPixelValueSpan.textContent = samplesPerPixelRange.value;
+            if (numSpheresRange) { numSpheresRange.value = targetSphereCount; } else { console.error('Cannot set value for numSpheresRange, element not found.'); }
+            if (numSpheresValueSpan) { numSpheresValueSpan.textContent = targetSphereCount; } else { console.error('Cannot set textContent for numSpheresValueSpan, element not found.'); }
+            if (maxBouncesRange) { maxBouncesRange.value = maxBounces; } else { console.error('Cannot set value for maxBouncesRange, element not found.'); }
+            if (maxBouncesValueSpan) { maxBouncesValueSpan.textContent = maxBounces; } else { console.error('Cannot set textContent for maxBouncesValueSpan, element not found.'); }
+            if (samplesPerPixelRange) { samplesPerPixelRange.value = shadowSamples; } else { console.error('Cannot set value for samplesPerPixelRange, element not found.'); } // Both shadow and dof samples
+            if (samplesPerPixelValueSpan) { samplesPerPixelValueSpan.textContent = samplesPerPixelRange.value; } else { console.error('Cannot set textContent for samplesPerPixelValueSpan, element not found.'); }
 
             // Initialize the Selected Sphere UI Manager
             SelectedSphereUIManager.init();
@@ -3652,29 +3731,18 @@ If the issue continues, please check the console log (Press F12, go to Console) 
             // Convert to NDC
             const ndcX = (mouseX / canvas.clientWidth) * 2 - 1;
             const ndcY = (1 - (mouseY / canvas.clientHeight)) * 2 - 1; // Y is inverted
-            console.log("--- Ray Unprojection Start ---"); // ADD THIS
-            console.log("Mouse Coords (relative to canvas):", mouseX, mouseY); // ADD THIS
-            console.log("NDC Coords (X, Y): ", ndcX, ndcY); // ADD THIS
 
             // Ensure camera vectors and aspect ratio are up-to-date
             calculateCameraVectors();
             camera.aspect = canvas.clientWidth / canvas.clientHeight;
-            console.log("Camera Aspect:", camera.aspect, "FoVy:", camera.fovy, "Near:", camera.near, "Far:", camera.far); // ADD THIS
-            console.log("Camera Position:", camera.position); // ADD THIS
-            console.log("Camera Forward:", camera.forward); // ADD THIS
-            console.log("Camera Up:", camera.up); // ADD THIS
 
             // 1. Get Projection and View Matrices
             const projectionMatrix = getProjectionMatrix(camera.fovy, camera.aspect, camera.near, camera.far);
             const viewMatrix = getViewMatrix(camera.position, camera.forward, camera.up);
-            console.log("Projection Matrix:", projectionMatrix); // ADD THIS
-            console.log("View Matrix:", viewMatrix); // ADD THIS
 
             // 2. Get Inverse Projection and Inverse View Matrices
             const invProjectionMatrix = invertMatrix(projectionMatrix);
             const invViewMatrix = invertMatrix(viewMatrix); // Ensured semicolon
-            console.log("Inverse Projection Matrix:", invProjectionMatrix); // ADD THIS
-            console.log("Inverse View Matrix:", invViewMatrix); // ADD THIS
 
             if (!invProjectionMatrix || invProjectionMatrix[0] === undefined) { // Cleaned condition
                 console.error("Failed to invert projection matrix. Aborting ray generation.");
@@ -3688,10 +3756,8 @@ If the issue continues, please check the console log (Press F12, go to Console) 
             // 3. Unproject NDC to View Space
             // For WebGPU NDC Z is [0, 1], so near plane is at Z = 0.
             const nearPointNDC = [ndcX, ndcY, 0.0, 1.0];
-            console.log("Near Point (NDC):", nearPointNDC); // ADD THIS
 
             let nearPointCamera = multiplyVectorByMatrix(invProjectionMatrix, nearPointNDC);
-            console.log("Near Point (Camera Before Divide):", nearPointCamera); // ADD THIS
 
             // Perform perspective divide
             if (nearPointCamera[3] !== 0) {
@@ -3699,7 +3765,6 @@ If the issue continues, please check the console log (Press F12, go to Console) 
                 nearPointCamera[1] /= nearPointCamera[3];
                 nearPointCamera[2] /= nearPointCamera[3];
                 nearPointCamera[3] = 1.0; // Set W to 1 after perspective divide
-                console.log("Near Point (Camera After Divide):", nearPointCamera); // ADD THIS
             } else {
                 console.error("Ray generation: W component is zero after invProjectionMatrix multiplication. Cannot perform perspective divide.");
                 return;
@@ -3708,7 +3773,6 @@ If the issue continues, please check the console log (Press F12, go to Console) 
             // 4. Unproject View Space to World Space
             const pointToTransformToWorld = [nearPointCamera[0], nearPointCamera[1], nearPointCamera[2], 1.0];
             const nearPointWorld = multiplyVectorByMatrix(invViewMatrix, pointToTransformToWorld);
-            console.log("Near Point (World Before W-Normalize, if any):", nearPointWorld); // ADD THIS
 
             // Ray origin is the camera's position in world space.
             const worldRayOrigin = [...camera.position];
@@ -3726,7 +3790,6 @@ If the issue continues, please check the console log (Press F12, go to Console) 
 
             console.log("Clicked Ray Origin (World):", worldRayOrigin);
             console.log("Clicked Ray Direction (World):", finalRayDirection);
-            console.log("--- Ray Unprojection End ---"); // ADD THIS
 
             const intersectionResult = intersectRayWithSpheres(lastClickedRay.origin, lastClickedRay.direction);
             let needsGPUUpdate = false;
