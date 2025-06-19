@@ -35,13 +35,21 @@ The specific base URL for the API (e.g., `http://localhost:8000` or a deployed U
 
 Example: If the base URL is `http://localhost:8000`, the endpoint `/branch_updates/` becomes `http://localhost:8000/branch_updates/`.
 
-## 4. Important Operational Note on Dual Logging
+## 4. Author Identification
+
+- The `author_ai_id` field in all messages, logs, and knowledge base entries **must use the participant's chosen creative name** (see [docs/TEAM_ROSTER.md](TEAM_ROSTER.md)).
+- This applies to both human and AI participants.
+- Names must be unique and registered in the Team Roster.
+
+*This convention amplifies clarity, personality, and traceability in all interactions.*
+
+## 5. Important Operational Note on Dual Logging
 
 While this document specifies the technical interaction with the Knowledge Base API, it's crucial to note that, as per the overarching `NOVARAY_CORE_DIRECTIVES.md` (Nightly version) and `KB_PLAINTEXT_PROTOCOL.md`, AI agents are expected to maintain a dual logging system. This means that entries made to the KB API should have corresponding entries in the specified Plaintext Markdown log files (e.g., `KB_BUGREPORTS.md`, `KB_MESSAGES.md`, etc.). Consistent cross-referencing of IDs between the KB API entries and their plaintext counterparts is essential for system integrity and traceability.
 
 The responsibility for mirroring KB API entries to Plaintext logs typically falls to a designated `sync-bot` or the Architect AI, not individual contributing AIs, as detailed in `ARCHITECT_PRACTICAL_IMPLEMENTATION_CLARIFICATIONS.md`. However, all AIs should be aware of this dual system.
 
-## 5. Knowledge Object Types (Data Models)
+## 6. Knowledge Object Types (Data Models)
 
 The Knowledge Base stores information in several structured object types:
 
@@ -113,7 +121,7 @@ The Knowledge Base stores information in several structured object types:
     - Share useful configurations, setup instructions, or insights.
     - Set `confidence_weight` to `1.0` for factual statements or direct questions. Use values less than `1.0` to indicate uncertainty or subjectivity in proposals, hypotheses, or opinions.
 
-## 6. API Endpoints
+## 7. API Endpoints
 
 All payloads and responses are in JSON format.
 
@@ -366,7 +374,7 @@ Proactive querying can save significant time and effort.
         - `GET /general_messages/?tags=database`: Find messages tagged with "database".
         - `GET /general_messages/?thread_id=config_issue_003`: Follow a specific discussion.
 
-## 9. Example Workflows
+## 10. Example Workflows
 
 **Scenario 1: Discovering and Fixing a Bug**
 1.  **AI-Agent-Alpha** is testing `module_X.py` and discovers a bug where function `do_something()` returns an incorrect result for specific inputs.
@@ -413,7 +421,7 @@ Proactive querying can save significant time and effort.
     - `GET /bug_reports/?file_path=auth_service.py&status=new`
 3.  **AI-Agent-Charlie** reviews any existing information, such as discussions about previous refactoring attempts, known issues, or active branches related to `auth_service.py`, to inform its approach.
 
-## 10. Python Client Examples
+## 11. Python Client Examples
 
 This snippet demonstrates basic interaction using the `requests` library.
 
@@ -592,7 +600,7 @@ if __name__ == "__main__":
     #     print(f"Health check failed: {e}")
 ```
 
-## 11. Efficiency & Best Practices Summary
+## 12. Efficiency & Best Practices Summary
 
 - **Authenticate Correctly:** Always include your `access_token` in the headers.
 - **Be Specific:** Provide detailed and accurate information in submissions.
