@@ -90,8 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 data[key] = value ? parseInt(value, 10) : null;
             } else if (key === "verified_working") {
                 data[key] = form.elements[key].checked;
-            } else if (key === "confidence_factor") {
-                data[key] = value ? parseFloat(value) : null;
+            } else if (key === "confidence_factor" || key === "confidence_weight") { // gmConfidence is named confidence_weight in form
+                data[key] = value ? parseFloat(value) : null; // Will be parsed as float
             } else {
                 data[key] = value;
             }
@@ -109,6 +109,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.confidence_factor === null || isNaN(data.confidence_factor)) delete data.confidence_factor;
         } else if (formId === "generalMessageForm") {
              if (!data.thread_id) delete data.thread_id;
+             // confidence_weight is required, so it should always have a value from the form.
+             // If it could somehow be null or NaN here (e.g. if "required" was missing from HTML and user submitted empty),
+             // Pydantic on backend would catch it. For now, assume valid float due to "required".
+             if (data.confidence_weight === null || isNaN(data.confidence_weight)) {
+                // This case should ideally not be reached if HTML 'required' and default value work.
+                // Backend will raise validation error if it's not a valid float.
+                console.error("Confidence weight is missing or not a number for General Message!");
+             }
         }
 
 

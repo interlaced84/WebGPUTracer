@@ -1,7 +1,7 @@
 # NovaRay Project - Architectural Review Heuristics for the Knowledge Ecosystem
 
-**Version:** 1.2
-**Purpose:** To provide a structured framework for an AI acting in the "NovaRay Architect" role. This AI analyzes the content and usage patterns of the shared Knowledge Base (KB) API, and its interplay with other shared documentation (e.g., `WEBGPU_RESOURCES.MD`, `AI_INTERACTION_PROTOCOL.md`, `NOVARAY_CORE_DIRECTIVES.md`, and AI `TROUBLESHOOTING_LOG.md` examples, plus the Plaintext KB components from the "Nightly" branch like `KB_MESSAGES.MD`). The goal is to assess the health of this knowledge ecosystem, identify patterns of AI collaboration, pinpoint areas for workflow improvement, suggest updates to shared documentation, and ensure alignment with project directives to foster ever-increasing group intelligence and efficiency.
+**Version:** 1.3
+**Purpose:** To provide a structured framework for an AI acting in the "NovaRay Architect" role. This AI analyzes the content and usage patterns of the shared Knowledge Base (KB) API, and its interplay with other shared documentation (e.g., `WEBGPU_RESOURCES.MD`, `AI_INTERACTION_PROTOCOL.md`, `NOVARAY_CORE_DIRECTIVES.md`, AI `TROUBLESHOOTING_LOG.md` examples, Plaintext KB components like `KB_MESSAGES.MD`, and optimization suggestions like `docs/ARCHIE_OPTIMIZATION_SUGGESTIONS_V1_Version2.md`). The goal is to assess the health of this knowledge ecosystem, identify patterns of AI collaboration, pinpoint areas for workflow improvement, suggest updates to shared documentation, and ensure alignment with project directives to foster ever-increasing group intelligence and efficiency.
 
 ---
 
@@ -26,13 +26,13 @@
 
 *   **H1.4: Proper Use of KB Fields:**
     *   **Heuristic:** Are all relevant fields populated appropriately for each KB entry type (e.g., `author_ai_id`, `related_files`, `status` updates in `BugReport` and `BranchUpdate`)? Is `confidence_factor` used sensibly in `SolutionKnowledge` entries where an AI might have varying degrees of certainty?
-    *   **Metric (Quantitative/Qualitative):** Percentage of entries missing key optional-but-recommended fields. Check for timely status updates and appropriate use of fields like `confidence_factor`.
+    *   **Metric (Quantitative/Qualitative):** Percentage of entries missing key optional-but-recommended fields. Check for timely status updates and appropriate use of fields like `confidence_factor` in `SolutionKnowledge`.
     *   **Suggestion Trigger:** Consistent omission or outdated status of important fields, or lack of `confidence_factor` usage where it could be informative.
 
-*   **H1.5: Effective Use of Tags in `GeneralMessage`:**
-    *   **Heuristic:** Are `tags` used effectively to categorize information and improve discoverability? Is a consistent tagging vocabulary emerging or needed?
-    *   **Metric (Qualitative):** Review tag usage.
-    *   **Suggestion Trigger:** Infrequent, inconsistent, or overly generic tags.
+*   **H1.5: Effective Use of Structured Fields in `GeneralMessage`:**
+    *   **Heuristic:** Are `tags` used effectively to categorize information and improve discoverability? Is the mandatory `confidence_weight` field present and used appropriately (1.0 for factual/interrogative, <1.0 for subjective) in `GeneralMessage` entries, as per `AI_INTERACTION_PROTOCOL.md`? Is a consistent tagging vocabulary emerging or needed?
+    *   **Metric (Qualitative):** Review tag usage and `confidence_weight` values in `GeneralMessage` entries.
+    *   **Suggestion Trigger:** Infrequent, inconsistent, or overly generic tags; missing or inappropriately used `confidence_weight`.
 
 ## Category 2: Knowledge Connectivity and Relationships (within KB API)
 
@@ -137,6 +137,16 @@ The Architect AI's report to the User should typically include:
     *   Directive/Protocol Refinements (e.g., "Suggest clarifying Core Directive 5.X regarding X", or "Propose refining `KB_PLAINTEXT_PROTOCOL.md` on X").
     *   Prompts for AI Team (e.g., "Recommend AIs be guided to review new `GeneralMessage`s tagged 'best_practice'").
     *   Potential enhancements to the KB system (API or Plaintext) or interaction protocols.
+    *   Recommendations on Strategic Optimizations (referencing `docs/ARCHIE_OPTIMIZATION_SUGGESTIONS_V1_Version2.md` or similar).
 
 ---
+
+## Category 6: Review of System Optimization & Evolution Suggestions
+
+**Objective:** Evaluate the current system state against documented optimization suggestions and identify opportunities for strategic improvements.
+
+*   **H6.1: Consideration of Strategic Optimizations:**
+    *   **Heuristic:** Does the current state of KB activity (e.g., volume, query patterns, performance metrics if available), observed bottlenecks in AI collaboration, or direct AI feedback align with any of the suggestions in `docs/ARCHIE_OPTIMIZATION_SUGGESTIONS_V1_Version2.md` (or similar future optimization documents)?
+    *   **Metric (Qualitative):** Review optimization suggestions against the current KB health report and operational observations.
+    *   **Suggestion Trigger:** Architect identifies that implementing a specific documented optimization (e.g., event-driven sync for KB API to Plaintext, advanced log indexing, UI enhancements for KB frontend) could address current issues or significantly improve efficiency or utility of the knowledge ecosystem. Propose this to the User with justification.
 ```

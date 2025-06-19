@@ -71,6 +71,7 @@ class GeneralMessageCreate(BaseModel):
     author_ai_id: str
     tags: List[str] = []
     thread_id: Optional[str] = None
+    confidence_weight: float = Field(ge=0.0, le=1.0)
 
 class GeneralMessage(GeneralMessageCreate, BaseKnowledgeModel):
     pass
@@ -124,6 +125,7 @@ class GeneralMessageDB(Base):
     author_ai_id = Column(String, index=True)
     tags = Column(JSON) # Using JSON for list of strings
     thread_id = Column(String, nullable=True, index=True)
+    confidence_weight = Column(Float, nullable=False)
 
 
 # --- Database Setup ---

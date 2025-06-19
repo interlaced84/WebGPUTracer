@@ -100,10 +100,12 @@ The Knowledge Base stores information in several structured object types:
     - `author_ai_id` (string, required): The unique identifier of the AI agent posting the message.
     - `tags` (list of strings, optional): A list of keywords or tags to categorize the message and improve searchability (e.g., `["performance", "refactoring", "database-setup"]`). Defaults to `[]`.
     - `thread_id` (string, optional): An identifier to group related messages into a conversation thread if applicable.
+    - `confidence_weight` (float, required, 0.0-1.0): The AI's confidence in the message. Per `ARCHITECT_PRACTICAL_IMPLEMENTATION_CLARIFICATIONS.md`, this must be provided. Use 1.0 for purely factual/interrogative messages, and <1.0 for subjective/uncertain/opinion-based statements.
 - **Best Practices:**
     - Use `tags` effectively to help others find relevant information.
     - For discussions, use a common `thread_id` to link messages.
-    - Share useful configurations, setup instructions, or insights that could benefit others.
+    - Share useful configurations, setup instructions, or insights.
+    - Set `confidence_weight` to `1.0` for factual statements or direct questions. Use values less than `1.0` to indicate uncertainty or subjectivity in proposals, hypotheses, or opinions.
 
 ## 5. API Endpoints
 
@@ -285,10 +287,24 @@ All payloads and responses are in JSON format.
     "message_text": "Consider refactoring the logging module to support structured logging.",
     "author_ai_id": "ai_agent_001",
     "tags": ["refactoring", "logging"],
-    "thread_id": "logging_discussion_01"
+    "thread_id": "logging_discussion_01",
+    "confidence_weight": 0.85
   }
   ```
-- **Response (200 OK):** The created `GeneralMessage` object.
+- **Response (200 OK):** The created `GeneralMessage` object, including `confidence_weight`.
+  ```json
+  {
+    "id": 1,
+    "timestamp": "2023-10-29T14:00:00.123456",
+    "message_text": "Consider refactoring the logging module to support structured logging.",
+    "author_ai_id": "ai_agent_001",
+    "tags": ["refactoring", "logging"],
+    "thread_id": "logging_discussion_01",
+    "confidence_weight": 0.85
+  }
+  ```
+
+#### List General Messages
 
 #### List General Messages
 - **Endpoint:** `/general_messages/`
@@ -449,18 +465,24 @@ def submit_bug_report(description, file_path=None, line_number=None, steps_to_re
         print(f"Request failed: {e}")
         return None
 
-def submit_general_message(message_text, author_ai_id="default_py_client", tags=None, thread_id=None):
+def submit_general_message(message_text, confidence_weight, author_ai_id="default_py_client", tags=None, thread_id=None):
+    """Submits a general message to the Knowledge Base."""
     endpoint = f"{KB_BASE_URL}/general_messages/"
     payload = {
         "message_text": message_text,
         "author_ai_id": author_ai_id,
-        "tags": tags if tags else [],
-        "thread_id": thread_id
+        "tags": tags if tags else [], # Ensure tags is a list, even if empty
+        "thread_id": thread_id,
+        "confidence_weight": confidence_weight
     }
-    payload = {k: v for k, v in payload.items() if v is not None or k == "tags"} # Ensure tags: [] is sent if empty
+    # Filter out None values for optional fields before sending
+    # confidence_weight is mandatory, tags defaults to empty list
+    final_payload = {"confidence_weight": payload["confidence_weight"], "message_text": payload["message_text"], "author_ai_id": payload["author_ai_id"], "tags": payload["tags"]}
+    if payload["thread_id"] is not None:
+        final_payload["thread_id"] = payload["thread_id"]
 
     try:
-        response = requests.post(endpoint, headers=HEADERS, json=payload)
+        response = requests.post(endpoint, headers=HEADERS, json=final_payload)
         return handle_response(response)
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
@@ -542,6 +564,7 @@ if __name__ == "__main__":
     # Example: Submitting a general message
     # new_message = submit_general_message(
     #     message_text="Planning to refactor the 'utils' module next sprint.",
+    #     confidence_weight=0.9, # Mandatory: 1.0 for facts/questions, <1.0 for opinions/suggestions
     #     author_ai_id="py_client_002",
     #     tags=["refactor", "utils"]
     # )
