@@ -399,6 +399,39 @@
                         </div>
                     </div>
                 </details>
+                <details>
+                    <summary>Procedural Rock Controls</summary>
+                    <div class="details-content">
+                        <div class="control-group">
+                            <label for="rockCountSlider">Rock Count: <span id="rockCountValue" class="current-value">2</span></label>
+                            <input type="range" id="rockCountSlider" min="0" max="10" step="1" value="2">
+                        </div>
+                        <div class="control-group">
+                            <label for="rockSubdivisionsSlider">Subdivisions: <span id="rockSubdivisionsValue" class="current-value">1</span></label>
+                            <input type="range" id="rockSubdivisionsSlider" min="0" max="3" step="1" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label for="rockNumScrapesSlider">Number of Scrapes: <span id="rockNumScrapesValue" class="current-value">15</span></label>
+                            <input type="range" id="rockNumScrapesSlider" min="0" max="50" step="1" value="15">
+                        </div>
+                        <div class="control-group">
+                            <label for="rockScrapeStrengthSlider">Scrape Strength: <span id="rockScrapeStrengthValue" class="current-value">0.30</span></label>
+                            <input type="range" id="rockScrapeStrengthSlider" min="0.01" max="1.0" step="0.01" value="0.3">
+                        </div>
+                        <div class="control-group">
+                            <label for="rockScrapeRadiusMinSlider">Scrape Radius Min: <span id="rockScrapeRadiusMinValue" class="current-value">0.40</span></label>
+                            <input type="range" id="rockScrapeRadiusMinSlider" min="0.1" max="1.0" step="0.05" value="0.4">
+                        </div>
+                        <div class="control-group">
+                            <label for="rockScrapeRadiusMaxSlider">Scrape Radius Max: <span id="rockScrapeRadiusMaxValue" class="current-value">0.80</span></label>
+                            <input type="range" id="rockScrapeRadiusMaxSlider" min="0.1" max="2.0" step="0.05" value="0.8">
+                        </div>
+                        <div class="control-group">
+                            <label for="rockVertexNoiseStrengthSlider">Vertex Noise: <span id="rockVertexNoiseStrengthValue" class="current-value">0.050</span></label>
+                            <input type="range" id="rockVertexNoiseStrengthSlider" min="0.0" max="0.5" step="0.005" value="0.05">
+                        </div>
+                    </div>
+                </details>
                 <details open>
                     <summary>Sun</summary> <!-- Renamed from Lighting -->
                     <div class="details-content">
@@ -912,7 +945,11 @@ const bvhWorkerScript = `
             // Storage Buffers
             bvhNodesBuffer: null,
             primitiveIndicesBuffer: null,
-            sphereDataBuffer: null,
+            sphereDataBuffer: null, // Also used for bounding spheres of procedural meshes
+            meshInstanceDataBuffer: null, // Stores metadata for each mesh instance
+            vertexDataBuffer: null,       // Stores all vertices for all meshes
+            triangleIndexDataBuffer: null,// Stores all triangle indices for all meshes
+
 
             // Frame / Time / Input State
             /** @type {number} Current frame count for accumulation rendering. */
@@ -1122,9 +1159,36 @@ const bvhWorkerScript = `
                 struct WaterParams{strength:f32,frequency:f32,speed:f32,_pad0:f32,};
                 struct TerrainParams{heightScale:f32,frequency:f32,_pad0:f32,_pad1:f32,};
                 struct TimeUniform{time:f32,frame_count:u32,_pad0:vec2<f32>,};
-                struct RaytracerParams{maxBounces:u32,maxRaymarchSteps:u32,shadowSamples:u32,dofSamples:u32,numBVHNodes:u32,numPrimitives:u32,skyPreset:u32,_pad0:u32,warpStrength:f32,focalDistance:f32,apertureSize:f32,_pad1:f32,};
+                struct RaytracerParams{
+                    maxBounces:u32,maxRaymarchSteps:u32,shadowSamples:u32,dofSamples:u32, // 16 bytes
+                    numBVHNodes:u32,numPrimitives:u32,skyPreset:u32,numMeshInstances:u32, // 16 bytes (numPrimitives is for BVH, numMeshInstances for actual meshes)
+                    warpStrength:f32,focalDistance:f32,apertureSize:f32,_pad1:f32, // 16 bytes
+                }; // Total 48 bytes
                 struct Ray{origin:vec3<f32>,direction:vec3<f32>,};
-                struct HitInfo{hit_pos:vec3<f32>,normal:vec3<f32>,distance:f32,is_hit:bool,object_id:u32,sphere_idx:u32,is_water:bool,};
+                struct HitInfo{hit_pos:vec3<f32>,normal:vec3<f32>,distance:f32,is_hit:bool,object_id:u32,sphere_idx:u32,is_water:bool,}; // sphere_idx will become instance_idx (sphere or mesh)
+
+                // Mesh Data Structures
+                struct Vertex {
+                    position: vec3<f32>,
+                    normal: vec3<f32>,
+                    // uv: vec2<f32>, // Add later if needed
+                };
+
+                struct Triangle { // Represents indices into a mesh's specific vertex list
+                    i0: u32,
+                    i1: u32,
+                    i2: u32,
+                };
+
+                struct MeshInstance { // Metadata for a single mesh instance in the scene
+                    vertex_offset: u32, // Offset into the global vertexDataBuffer
+                    index_offset: u32,  // Offset into the global triangleIndexDataBuffer
+                    num_triangles: u32,
+                    material_id: u32, // Could index into a global material buffer or use Sphere struct convention
+                    // Bounding sphere for broad phase, if not using BVH for meshes directly
+                    // bounding_sphere_center: vec3<f32>,
+                    // bounding_sphere_radius: f32,
+                };
 
                 // Cloud Parameters UBO
                 struct CloudParamsUBO {
@@ -1157,9 +1221,12 @@ const bvhWorkerScript = `
                 @group(0) @binding(9) var noiseTexture3D: texture_3d<f32>;
                 @group(0) @binding(10) var<uniform> cloudParamsUBO: CloudParamsUBO;
 
-                @group(1) @binding(0) var<storage, read> spheres: array<Sphere>;
+                @group(1) @binding(0) var<storage, read> spheres: array<Sphere>; // Also used for mesh bounding spheres if isProceduralRock is true
                 @group(1) @binding(1) var<storage, read> bvhNodes: array<BvhNode>;
-                @group(1) @binding(2) var<storage, read> primitiveIndices: array<u32>;
+                @group(1) @binding(2) var<storage, read> primitiveIndices: array<u32>; // Points to sphereDataBuffer indices
+                @group(1) @binding(3) var<storage, read> meshInstances: array<MeshInstance>;
+                @group(1) @binding(4) var<storage, read> vertexData: array<Vertex>;
+                @group(1) @binding(5) var<storage, read> triangleIndexData: array<Triangle>; // Stores all triangles for all meshes
 
                 fn sample3DNoiseTexture(world_pos: vec3<f32>, noise_texture_scale: f32) -> f32 {
                     let scaled_pos = world_pos * noise_texture_scale;
@@ -1255,6 +1322,78 @@ const bvhWorkerScript = `
 
                 fn get_color_from_sub_hit(ray:Ray,time:f32,is_sub_water:u32,gid:vec2<u32>)->vec3<f32>{let hit=raymarch(ray,time,raytracerUBO.warpStrength);if(!hit.is_hit){return renderClouds(ray.origin, ray.direction, MAX_DIST, raytracerUBO.skyPreset).rgb;}else if(hit.object_id==0u){let alb=vec3<f32>(0.4,0.3,0.2);return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,alb,0.0f,0.9f,0.04f,is_sub_water,gid);}else if(hit.object_id==1u){let alb=vec3<f32>(0.1,0.3,0.5);return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,alb,0.0f,0.1f,0.04f,is_sub_water,gid);}else{let s=spheres[hit.sphere_idx];return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,s.albedo_metallic.xyz,s.albedo_metallic.w,s.pbr_properties.x,s.pbr_properties.y,is_sub_water,gid);}}
 
+                // Placeholder for Ray-Triangle Intersection (Moller-Trumbore)
+                fn rayTriangleIntersect(ray: Ray, v0: vec3<f32>, v1: vec3<f32>, v2: vec3<f32>) -> f32 {
+                    let edge1 = v1 - v0;
+                    let edge2 = v2 - v0;
+                    let h = cross(ray.direction, edge2);
+                    let a = dot(edge1, h);
+
+                    if (a > -EPSILON && a < EPSILON) { // Ray is parallel to triangle.
+                        return -1.0;
+                    }
+
+                    let f = 1.0 / a;
+                    let s = ray.origin - v0;
+                    let u = f * dot(s, h);
+
+                    if (u < 0.0 || u > 1.0) {
+                        return -1.0;
+                    }
+
+                    let q = cross(s, edge1);
+                    let v = f * dot(ray.direction, q);
+
+                    if (v < 0.0 || u + v > 1.0) {
+                        return -1.0;
+                    }
+
+                    // At this stage we can compute t to find out where the intersection point is on the line.
+                    let t = f * dot(edge2, q);
+                    if (t > EPSILON) { // Ray intersection
+                        return t;
+                    } else { // This means that there is a line intersection but not a ray intersection.
+                        return -1.0;
+                    }
+                }
+
+                // Mesh intersection logic
+                fn intersectMesh(ray: Ray, mesh_instance_idx: u32, bounding_sphere_hit_dist: f32) -> HitInfo {
+                    var closest_mesh_hit: HitInfo;
+                    closest_mesh_hit.is_hit = false;
+                    closest_mesh_hit.distance = bounding_sphere_hit_dist;
+                    // object_id and sphere_idx will be set if a hit occurs, based on the placeholder sphere's original values.
+                    // is_water will be false.
+
+                    if (mesh_instance_idx >= raytracerUBO.numMeshInstances) {
+                        return closest_mesh_hit; // Should not happen if logic is correct before calling
+                    }
+
+                    let mesh = meshInstances[mesh_instance_idx];
+
+                    for (var i = 0u; i < mesh.num_triangles; i = i + 1u) {
+                       let tri_data = triangleIndexData[mesh.index_offset + i]; // tri_data is a Triangle struct
+                       let v0 = vertexData[mesh.vertex_offset + tri_data.i0];
+                       let v1 = vertexData[mesh.vertex_offset + tri_data.i1];
+                       let v2 = vertexData[mesh.vertex_offset + tri_data.i2];
+
+                       let t = rayTriangleIntersect(ray, v0.position, v1.position, v2.position);
+                       if (t > MIN_DIST && t < closest_mesh_hit.distance) {
+                           closest_mesh_hit.is_hit = true;
+                           closest_mesh_hit.distance = t;
+                           closest_mesh_hit.hit_pos = ray.origin + ray.direction * t;
+                           // Flat normal for now
+                           closest_mesh_hit.normal = normalize(cross(v1.position - v0.position, v2.position - v0.position));
+                           closest_mesh_hit.sphere_idx = mesh_instance_idx; // Store mesh_instance_idx here for material/shader logic
+                           // Keep original object_id from sphere placeholder to use its materialType (3.0) for now
+                           // closest_mesh_hit.object_id = ... ;
+                           closest_mesh_hit.is_water = false;
+                       }
+                    }
+                    return closest_mesh_hit;
+                }
+
+
                 fn traceRay(initial_ray: Ray, current_time: f32, global_id_xy: vec2<u32>) -> vec4<f32> {
                     var final_color = vec3<f32>(0.0f);
                     var current_ray = initial_ray;
@@ -1272,26 +1411,53 @@ const bvhWorkerScript = `
                             break;
                         }
 
-                        let N = hit_info.normal;
-                        let hit_pos = hit_info.hit_pos;
+                        var current_hit_info = hit_info; // Make a mutable copy
+                        let sphere_material_type = spheres[current_hit_info.sphere_idx].pbr_properties.z;
+
+                        if (sphere_material_type == 3.0f && raytracerUBO.numMeshInstances > 0u) { // materialType 3 indicates a rock placeholder
+                            // pbr_properties.w for rock placeholders stores the meshInstanceIndex
+                            let mesh_instance_idx = u32(spheres[current_hit_info.sphere_idx].pbr_properties.w);
+
+                            if (mesh_instance_idx < raytracerUBO.numMeshInstances) {
+                                let mesh_hit = intersectMesh(current_ray, mesh_instance_idx, current_hit_info.distance);
+                                if (mesh_hit.is_hit) {
+                                    current_hit_info = mesh_hit; // Update hit_info with mesh intersection details
+                                    // The materialType (3.0f) is implicitly handled as sphere_material_type is already 3.0f.
+                                    // current_hit_info.object_id from the original sphere hit is preserved.
+                                    // current_hit_info.sphere_idx now holds mesh_instance_idx from intersectMesh.
+                                } else {
+                                    // Ray hit bounding sphere but missed the actual mesh. Treat as a sky hit.
+                                    final_color += current_weight * renderClouds(current_ray.origin, current_ray.direction, MAX_DIST, raytracerUBO.skyPreset).rgb;
+                                    break;
+                                }
+                            } else {
+                                // Invalid mesh_instance_idx, this path should ideally not be hit if data is correct.
+                                // Treat as if the ray missed this object and hit the sky.
+                                final_color += current_weight * renderClouds(current_ray.origin, current_ray.direction, MAX_DIST, raytracerUBO.skyPreset).rgb;
+                                break;
+                            }
+                        }
+
+                        let N = current_hit_info.normal;
+                        let hit_pos = current_hit_info.hit_pos; // Use current_hit_info
                         let V = -current_ray.direction;
                         var surface_color = vec3<f32>(0.0f);
 
                         is_in_water_medium_trace = select(0u, 1u, current_ior > 1.01f);
 
-                        if (hit_info.object_id == 0u) { // Terrain
+                        if (current_hit_info.object_id == 0u) { // Terrain
                             let terrain_albedo = vec3<f32>(0.4f, 0.3f, 0.2f);
                             surface_color = calculateLighting(hit_pos, N, V, current_time, terrain_albedo, 0.0f, 0.9f, 0.04f, is_in_water_medium_trace, global_id_xy);
-                            let noise_val = sample3DNoiseTexture(hit_info.hit_pos, 0.1f);
+                            let noise_val = sample3DNoiseTexture(current_hit_info.hit_pos, 0.1f); // Use current_hit_info
                             surface_color.r += noise_val * 0.5f;
                             final_color += current_weight * surface_color;
                             break;
                         }
-                        else if (hit_info.object_id == 1u) { // Water
+                        else if (current_hit_info.object_id == 1u) { // Water
                             let water_surface_albedo = vec3<f32>(0.1f, 0.3f, 0.5f);
                             let water_body_color_absorption = vec3<f32>(0.1f, 0.2f, 0.3f);
                             surface_color = calculateLighting(hit_pos, N, V, current_time, water_surface_albedo, 0.0f, 0.1f, 0.04f, is_in_water_medium_trace, global_id_xy);
-                            let noise_val = sample3DNoiseTexture(hit_info.hit_pos, 0.05f);
+                            let noise_val = sample3DNoiseTexture(current_hit_info.hit_pos, 0.05f); // Use current_hit_info
                             surface_color.g += noise_val * 0.3f;
 
                             let iors_info = get_ior_and_normal(current_ray.direction, N, current_ior, water_ior);
@@ -1301,7 +1467,7 @@ const bvhWorkerScript = `
                             final_color += current_weight * surface_color;
 
                             let reflected_dir = reflect(current_ray.direction, adjusted_normal);
-                            let reflected_ray = Ray(hit_pos + reflected_dir * EPSILON, reflected_dir);
+                            let reflected_ray = Ray(current_hit_info.hit_pos + reflected_dir * EPSILON, reflected_dir); // Use current_hit_info
 
                             let refracted_dir = snellsLaw(current_ray.direction, adjusted_normal, n1, n2);
                             let cos_theta_i = dot(-current_ray.direction, adjusted_normal);
@@ -1309,7 +1475,7 @@ const bvhWorkerScript = `
 
                             if (length(refracted_dir) > 0.001f) {
                                 final_color += current_weight * fresnel_reflectance * get_color_from_sub_hit(reflected_ray, current_time, is_in_water_medium_trace, global_id_xy);
-                                current_ray = Ray(hit_pos + refracted_dir * EPSILON * -1.0f, refracted_dir);
+                                current_ray = Ray(current_hit_info.hit_pos + refracted_dir * EPSILON * -1.0f, refracted_dir); // Use current_hit_info
                                 current_weight *= water_body_color_absorption * (1.0f - fresnel_reflectance);
                                 current_ior = n2;
                                 is_in_water_medium_trace = select(0u, 1u, current_ior > 1.01f);
@@ -1320,25 +1486,46 @@ const bvhWorkerScript = `
                                 break;
                             }
                         }
-                        else { // Spheres
-                            let s = spheres[hit_info.sphere_idx];
-                            let albedo = s.albedo_metallic.xyz;
-                            let metallic = s.albedo_metallic.w;
-                            let roughness = s.pbr_properties.x;
-                            let base_reflectivity = s.pbr_properties.y;
+                        else { // Spheres or Rock Placeholders (current_hit_info.object_id >= 2u)
+                            // Note: current_hit_info.sphere_idx is the original index from BVH if it was a direct sphere hit,
+                            // or it's the mesh_instance_idx if it was a mesh hit.
+                            let s = spheres[current_hit_info.sphere_idx]; // For materialType and initial properties
                             let material_type = u32(s.pbr_properties.z);
-                            let refractive_index_object = s.pbr_properties.w;
 
-                            surface_color = calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
-                            let noise_val = sample3DNoiseTexture(hit_info.hit_pos, 0.2f);
+                            var albedo : vec3<f32>;
+                            var metallic : f32;
+                            var roughness : f32;
+                            var base_reflectivity : f32;
+                            var refractive_index_object : f32; // Only used if material_type is REFRACTIVE
+
+                            if (material_type == 3u) { // Procedural Rock (materialType 3 from placeholder sphere)
+                                albedo = vec3<f32>(0.45f, 0.42f, 0.4f);
+                                metallic = 0.05f;
+                                roughness = 0.85f;
+                                base_reflectivity = 0.03f;
+                                // Rock is opaque, so no refraction specific logic needed beyond this point for it.
+                                surface_color = calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                                final_color += current_weight * surface_color; // Apply lighting
+                                break; // Rocks are opaque and don't reflect/refract further rays for now.
+                            } else { // Regular Spheres
+                                albedo = s.albedo_metallic.xyz;
+                                metallic = s.albedo_metallic.w; // This is actually metallic for regular spheres
+                                roughness = s.pbr_properties.x;
+                                base_reflectivity = s.pbr_properties.y;
+                                refractive_index_object = s.pbr_properties.w; // Actual IOR for transmissive spheres
+                                surface_color = calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                            }
+
+                            let noise_val = sample3DNoiseTexture(current_hit_info.hit_pos, 0.2f); // Use current_hit_info
                             surface_color.r += noise_val * 0.5f;
                             final_color += current_weight * surface_color;
 
-                            if (material_type == MATERIAL_DIFFUSE) {
+                            // Common reflection/refraction logic for non-rock spheres
+                            if (material_type == MATERIAL_DIFFUSE) { // Already handled rock (material_type 3u)
                                 break;
                             } else if (material_type == MATERIAL_REFLECTIVE) {
                                 let reflected_dir = reflect(current_ray.direction, N);
-                                current_ray = Ray(hit_pos + reflected_dir * EPSILON, reflected_dir);
+                                current_ray = Ray(current_hit_info.hit_pos + reflected_dir * EPSILON, reflected_dir); // Use current_hit_info
                                 current_weight *= albedo;
                             } else if (material_type == MATERIAL_REFRACTIVE) {
                                 let iors_info = get_ior_and_normal(current_ray.direction, N, current_ior, refractive_index_object);
@@ -1348,14 +1535,14 @@ const bvhWorkerScript = `
                                 let cos_theta_i = dot(-current_ray.direction, adjusted_normal);
                                 let fresnel_reflectance = fresnelSchlick(cos_theta_i, n1, n2);
                                 let reflected_dir = reflect(current_ray.direction, adjusted_normal);
-                                let reflected_ray_for_calc = Ray(hit_pos + reflected_dir * EPSILON, reflected_dir);
+                                let reflected_ray_for_calc = Ray(current_hit_info.hit_pos + reflected_dir * EPSILON, reflected_dir); // Use current_hit_info
 
                                 final_color += current_weight * fresnel_reflectance * get_color_from_sub_hit(reflected_ray_for_calc, current_time, is_in_water_medium_trace, global_id_xy);
 
                                 let refracted_dir = snellsLaw(current_ray.direction, adjusted_normal, n1, n2);
 
                                 if (length(refracted_dir) > 0.001f) {
-                                    let refracted_ray_for_calc = Ray(hit_pos + refracted_dir * EPSILON * -1.0f, refracted_dir);
+                                    let refracted_ray_for_calc = Ray(current_hit_info.hit_pos + refracted_dir * EPSILON * -1.0f, refracted_dir); // Use current_hit_info
                                     let refracted_contrib_color = get_color_from_sub_hit(refracted_ray_for_calc, current_time, select(0u, 1u, n2 > 1.01f), global_id_xy);
                                     final_color += current_weight * (1.0f - fresnel_reflectance) * albedo * refracted_contrib_color;
                                     current_ior = n2;
@@ -1562,6 +1749,466 @@ const bvhWorkerScript = `
                 }
                 \`;
                     console.log("ShaderManager initialized and shader code moved.");
+                    this.shaderManager.wgslCompute = \`
+                // WGSL Compute Shader for Raytracing
+                // Main raytracing logic, including material evaluation, lighting, and BVH traversal.
+
+                // Perlin Noise (existing, used by domainWarp and procedural elements)
+                var<private> perm: array<u32, 512> = array<u32, 512>(/* ... Perlin table ... */);
+                var<private> grad3: array<vec3<f32>, 12> = array<vec3<f32>, 12>(/* ... Perlin gradients ... */);
+                fn mod289(x: vec3<f32>) -> vec3<f32> { return x - floor(x / 289.0f) * 289.0f; }
+                fn mod289_f(x: f32) -> f32 { return x - floor(x / 289.0f) * 289.0f; }
+                fn hash_grad(x: u32, y: u32, z: u32) -> u32 { return perm[ (perm[ (perm[x % 256u] + y) % 256u ] + z) % 256u ]; }
+                fn snoise(p: vec3<f32>) -> f32 { /* ... Classic Perlin snoise implementation ... */
+                    let F3 = 1.0f/3.0f; let G3 = 1.0f/6.0f;
+                    let s = (p.x + p.y + p.z) * F3; let i_float = floor(p + vec3<f32>(s)); let t = (i_float.x + i_float.y + i_float.z) * G3;
+                    let x0 = p - i_float + vec3<f32>(t); let g = step(x0.xyz, x0.yzx); let l = 1.0f - g;
+                    let i1 = min(g.xyz, l.yzx); let i2 = max(g.xyz, l.yzx);
+                    let i_u32 = vec3<u32>(i_float); let ii = i_u32 % 256u;
+                    let x1 = x0 - i1 + G3; let x2 = x0 - i2 + 2.0f * G3; let x3 = x0 - 1.0f + 3.0f * G3;
+                    let gi0 = hash_grad(ii.x, ii.y, ii.z); let gi1 = hash_grad(ii.x + u32(i1.x), ii.y + u32(i1.y), ii.z + u32(i1.z));
+                    let gi2 = hash_grad(ii.x + u32(i2.x), ii.y + u32(i2.y), ii.z + u32(i2.z)); let gi3 = hash_grad(ii.x + 1u, ii.y + 1u, ii.z + 1u);
+                    var sum: f32 = 0.0f;
+                    var t0 = 0.5f - dot(x0, x0); if (t0 >= 0.0f) { sum += pow(t0, 4.0f) * dot(grad3[gi0 % 12u], x0); }
+                    var t1 = 0.5f - dot(x1, x1); if (t1 >= 0.0f) { sum += pow(t1, 4.0f) * dot(grad3[gi1 % 12u], x1); }
+                    var t2 = 0.5f - dot(x2, x2); if (t2 >= 0.0f) { sum += pow(t2, 4.0f) * dot(grad3[gi2 % 12u], x2); }
+                    var t3 = 0.5f - dot(x3, x3); if (t3 >= 0.0f) { sum += pow(t3, 4.0f) * dot(grad3[gi3 % 12u], x3); }
+                    return 32.0f * sum;
+                }
+                fn rand_float(co: vec2<f32>, seed: f32) -> f32 { return fract(sin(dot(co.xy + vec3<f32>(seed).xy, vec2<f32>(12.9898f, 78.233f))) * 43758.5453f); }
+                fn fBm(p: vec3<f32>) -> f32 { var t:f32=0.0; var f:f32=1.0; var a:f32=0.5; for(var i:u32=0u;i<8u;i=i+1u){t+=snoise(p*f)*a;f*=2.0;a*=0.5;} return t;}
+
+                struct CameraUniform{position:vec3<f32>,_pad0:f32,forward:vec3<f32>,_pad1:f32,right:vec3<f32>,_pad2:f32,up:vec3<f32>,_pad3:f32,resolution:vec2<f32>,aspect:f32,fovy:f32,near:f32,far:f32,_pad4:vec2<f32>,};
+                struct LightUniform{position:vec3<f32>,brightness:f32,size:f32,_pad0:vec3<f32>,color:vec3<f32>,_pad1:f32,};
+                struct Sphere{position_radius:vec4<f32>,albedo_metallic:vec4<f32>,pbr_properties:vec4<f32>,};
+                struct BvhNode{minBounds:vec3<f32>,isLeaf:u32,maxBounds:vec3<f32>,primitiveCount:u32,leftChildOrFirstPrimitiveIndex:u32,_pad0:u32,_pad1:u32,_pad2:u32,};
+                struct WaterParams{strength:f32,frequency:f32,speed:f32,_pad0:f32,};
+                struct TerrainParams{heightScale:f32,frequency:f32,_pad0:f32,_pad1:f32,};
+                struct TimeUniform{time:f32,frame_count:u32,_pad0:vec2<f32>,};
+                struct RaytracerParams{
+                    maxBounces:u32,maxRaymarchSteps:u32,shadowSamples:u32,dofSamples:u32, // 16 bytes
+                    numBVHNodes:u32,numPrimitives:u32,skyPreset:u32,numMeshInstances:u32, // 16 bytes
+                    warpStrength:f32,focalDistance:f32,apertureSize:f32,_pad1:f32, // 16 bytes
+                };
+                struct Ray{origin:vec3<f32>,direction:vec3<f32>,};
+                struct HitInfo{hit_pos:vec3<f32>,normal:vec3<f32>,distance:f32,is_hit:bool,object_id:u32,sphere_idx:u32,is_water:bool,};
+
+                struct Vertex { position: vec3<f32>, normal: vec3<f32>, };
+                struct Triangle { i0: u32, i1: u32, i2: u32, };
+                struct MeshInstance { vertex_offset: u32, index_offset: u32, num_triangles: u32, material_id: u32, };
+
+                struct CloudParamsUBO {
+                    layerMinY: f32, layerMaxY: f32, noiseScale: f32, densityThreshold: f32,
+                    densityMultiplier: f32, marchSteps: u32, scatteringCoeff: f32, absorptionCoeff: f32,
+                    baseColorR: f32, baseColorG: f32, baseColorB: f32, animationSpeed: f32,
+                };
+
+                const MATERIAL_DIFFUSE:u32=0u;const MATERIAL_REFLECTIVE:u32=1u;const MATERIAL_REFRACTIVE:u32=2u;
+                const MIN_DIST:f32=0.0001f;const MAX_DIST:f32=1000.0f;const EPSILON:f32=0.001f;const STACK_SIZE:u32=64u;const PI:f32=3.14159265359f;
+
+                @group(0) @binding(0) var<uniform> cameraUBO: CameraUniform;
+                @group(0) @binding(1) var<uniform> lightUBO: LightUniform;
+                @group(0) @binding(2) var<uniform> raytracerUBO: RaytracerParams;
+                @group(0) @binding(3) var<uniform> timeUBO: TimeUniform;
+                @group(0) @binding(4) var<uniform> waterUBO: WaterParams;
+                @group(0) @binding(5) var<uniform> terrainUBO: TerrainParams;
+                @group(0) @binding(6) var outputTexture: texture_storage_2d<rgba32float, write>;
+                @group(0) @binding(7) var inputTexture: texture_2d<f32>;
+                @group(0) @binding(8) var noiseSampler: sampler;
+                @group(0) @binding(9) var noiseTexture3D: texture_3d<f32>;
+                @group(0) @binding(10) var<uniform> cloudParamsUBO: CloudParamsUBO;
+
+                @group(1) @binding(0) var<storage, read> spheres: array<Sphere>;
+                @group(1) @binding(1) var<storage, read> bvhNodes: array<BvhNode>;
+                @group(1) @binding(2) var<storage, read> primitiveIndices: array<u32>;
+                @group(1) @binding(3) var<storage, read> meshInstances: array<MeshInstance>;
+                @group(1) @binding(4) var<storage, read> vertexData: array<Vertex>;
+                @group(1) @binding(5) var<storage, read> triangleIndexData: array<Triangle>;
+
+                fn sample3DNoiseTexture(world_pos: vec3<f32>, noise_texture_scale: f32) -> f32 {
+                    let scaled_pos = world_pos * noise_texture_scale;
+                    return textureSampleLevel(noiseTexture3D, noiseSampler, scaled_pos, 0.0f).r;
+                }
+
+                fn domainWarp(p:vec3<f32>,time:f32,strength:f32)->vec3<f32>{if(strength==0.0f){return p;}let offset_factor=vec3<f32>(snoise(p*0.5f+time*0.1f+vec3<f32>(10.0,20.0,30.0)),snoise(p*0.7f-time*0.2f+vec3<f32>(40.0,50.0,60.0)),snoise(p*0.9f+time*0.3f+vec3<f32>(70.0,80.0,90.0)));return p+offset_factor*strength;}
+                fn terrainHeight(x:f32,z:f32,time:f32)->f32{if(terrainUBO.heightScale==0.0f){return -100000.0f;}let p_large=vec3<f32>(x,z,time*0.01f)*0.05f;let large_noise=fBm(p_large);let p_detail=vec3<f32>(x,z,time*0.05f)*terrainUBO.frequency;let detail_noise=fBm(p_detail);let center_dist=distance(vec2<f32>(x,z),vec2<f32>(0.0,0.0));let island_factor=smoothstep(150.0f,0.0f,center_dist);let base_h=(0.5f+0.5f*large_noise*0.6f)+(0.5f+0.5f*detail_noise*0.4f);let scaled_h=(base_h/2.0f)*terrainUBO.heightScale;return max(-2.0f,scaled_h*island_factor);}
+                fn calculateWaveHeight(x:f32,z:f32,time:f32)->f32{var h:f32=0.0f;let freq=waterUBO.frequency;let str=waterUBO.strength;h+=sin(x*freq+time*waterUBO.speed)*str*0.7f;h+=cos(z*freq*1.5f+time*waterUBO.speed*0.8f)*str*0.5f;h+=sin((x+z)*freq*0.8f+time*waterUBO.speed*1.2f)*str*0.3f;return h;}
+                fn sdWaterPlane(p:vec3<f32>,time:f32,warp_strength:f32)->f32{let warped_p=domainWarp(p,time*0.5f,warp_strength);return warped_p.y-calculateWaveHeight(warped_p.x,warped_p.z,time);}
+                fn sdSphere(p:vec3<f32>,s:Sphere,warp_strength:f32)->f32{let warped_center=domainWarp(s.position_radius.xyz,timeUBO.time*0.5f,warp_strength);return distance(p,warped_center)-s.position_radius.w;}
+                fn intersect_aabb(ro:vec3<f32>,inv_dir:vec3<f32>,min_b:vec3<f32>,max_b:vec3<f32>)->f32{let t1=(min_b-ro)*inv_dir;let t2=(max_b-ro)*inv_dir;let t_min=min(t1,t2);let t_max=max(t1,t2);let te=max(max(t_min.x,t_min.y),t_min.z);let tx=min(min(t_max.x,t_max.y),t_max.z);if(te>tx||tx<0.0f){return -1.0f;}return max(0.0f,te);}
+                fn bvh_scene_sdf_spheres(ro:vec3<f32>,rd:vec3<f32>,time:f32,warp_str:f32,closest_d:ptr<function,f32>,closest_idx:ptr<function,u32>){if(raytracerUBO.numPrimitives==0u||raytracerUBO.numBVHNodes==0u){return;}var inv_dir=1.0f/rd;var stack:array<u32,STACK_SIZE>;var stack_ptr:u32=0u;var curr_node_idx=0u;for(var iter:u32=0u;iter<1024u;iter=iter+1u){if(stack_ptr>=STACK_SIZE||curr_node_idx>=raytracerUBO.numBVHNodes){break;}let node=bvhNodes[curr_node_idx];let t=intersect_aabb(ro,inv_dir,node.minBounds,node.maxBounds);if(t==-1.0f||t>*closest_d){if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];continue;}if(node.isLeaf==1u){for(var i:u32=0u;i<node.primitiveCount;i=i+1u){let sph_idx=primitiveIndices[node.leftChildOrFirstPrimitiveIndex+i];if(sph_idx>=raytracerUBO.numPrimitives){continue;}let s=spheres[sph_idx];let d=sdSphere(ro,s,warp_str);if(d<*closest_d){*closest_d=d;*closest_idx=sph_idx;}}if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];}else{let left_child=node.leftChildOrFirstPrimitiveIndex;let right_child=node.leftChildOrFirstPrimitiveIndex+1u;if(left_child>=raytracerUBO.numBVHNodes||right_child>=raytracerUBO.numBVHNodes){if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];continue;}let t_l=intersect_aabb(ro,inv_dir,bvhNodes[left_child].minBounds,bvhNodes[left_child].maxBounds);let t_r=intersect_aabb(ro,inv_dir,bvhNodes[right_child].minBounds,bvhNodes[right_child].maxBounds);if(t_l!=-1.0f&&t_r!=-1.0f){if(t_l<t_r){stack[stack_ptr]=right_child;stack_ptr=stack_ptr+1u;curr_node_idx=left_child;}else{stack[stack_ptr]=left_child;stack_ptr=stack_ptr+1u;curr_node_idx=right_child;}}else if(t_l!=-1.0f){curr_node_idx=left_child;}else if(t_r!=-1.0f){curr_node_idx=right_child;}else{if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];}}}}
+                fn sceneSDF(p:vec3<f32>,time:f32,warp_str:f32,obj_id:ptr<function,u32>)->f32{var min_d:f32=MAX_DIST;*obj_id=999u;let terrain_d=p.y-terrainHeight(p.x,p.z,time);if(terrain_d<min_d){min_d=terrain_d;*obj_id=0u;}let water_d=sdWaterPlane(p,time,warp_str);if(water_d<min_d){min_d=water_d;*obj_id=1u;}var closest_sph_d=MAX_DIST;var closest_sph_idx:u32=0u;bvh_scene_sdf_spheres(p,vec3<f32>(0.0f),time,warp_str,&closest_sph_d,&closest_sph_idx);if(closest_sph_d<min_d){min_d=closest_sph_d;*obj_id=closest_sph_idx+2u;}return min_d;}
+                fn estimateNormal(p:vec3<f32>,time:f32,warp_str:f32,obj_id_hint:u32)->vec3<f32>{var id_dummy:u32=0u;let gx=sceneSDF(p+vec3<f32>(EPSILON,0.0,0.0),time,warp_str,&id_dummy)-sceneSDF(p-vec3<f32>(EPSILON,0.0,0.0),time,warp_str,&id_dummy);let gy=sceneSDF(p+vec3<f32>(0.0,EPSILON,0.0),time,warp_str,&id_dummy)-sceneSDF(p-vec3<f32>(0.0,EPSILON,0.0),time,warp_str,&id_dummy);let gz=sceneSDF(p+vec3<f32>(0.0,0.0,EPSILON),time,warp_str,&id_dummy)-sceneSDF(p-vec3<f32>(0.0,0.0,EPSILON),time,warp_str,&id_dummy);return normalize(vec3<f32>(gx,gy,gz));}
+                fn calculateWaterNormal(p:vec3<f32>,time:f32,warp_str:f32)->vec3<f32>{let wp=domainWarp(p,time*0.5f,warp_str);let x=wp.x;let z=wp.z;let hb=calculateWaveHeight(x,z,time);let eps=0.001f;let hx=calculateWaveHeight(x+eps,z,time);let hz=calculateWaveHeight(x,z+eps,time);return normalize(vec3<f32>(-(hx-hb)/eps,1.0f,-(hz-hb)/eps));}
+                fn calculateTerrainNormal(p:vec3<f32>,time:f32,warp_str:f32)->vec3<f32>{let wp=domainWarp(p,time*0.5f,warp_str);let x=wp.x;let z=wp.z;let hb=terrainHeight(x,z,time);let eps=0.001f;let hx=terrainHeight(x+eps,z,time);let hz=terrainHeight(x,z+eps,time);return normalize(vec3<f32>(-(hx-hb)/eps,1.0f,-(hz-hb)/eps));}
+                fn raymarch(ray:Ray,time:f32,warp_str:f32)->HitInfo{var hi:HitInfo;hi.is_hit=false;hi.distance=MAX_DIST;hi.sphere_idx=0u;hi.is_water=false;var total_dist:f32=0.0f;var curr_obj_id:u32=999u;for(var i:u32=0u;i<raytracerUBO.maxRaymarchSteps;i=i+1u){let cp=ray.origin+ray.direction*total_dist;let d=sceneSDF(cp,time,warp_str,&curr_obj_id);if(d<MIN_DIST){hi.is_hit=true;hi.hit_pos=cp;hi.distance=total_dist;hi.object_id=curr_obj_id;if(curr_obj_id==1u){hi.normal=calculateWaterNormal(cp,time,warp_str);hi.is_water=true;}else if(curr_obj_id==0u){hi.normal=calculateTerrainNormal(cp,time,warp_str);hi.is_water=false;}else{hi.sphere_idx=curr_obj_id-2u;hi.normal=estimateNormal(cp,time,warp_str,curr_obj_id);hi.is_water=false;}break;}total_dist+=d;if(total_dist>=MAX_DIST){break;}}return hi;}
+
+                fn getSkyColor(rd:vec3<f32>,sky_preset:u32)->vec3<f32>{let sun_dir=normalize(lightUBO.position.xyz);let sun_dot=dot(rd,sun_dir);let sun_i=smoothstep(0.99f,1.0f,sun_dot);let sun_c=lightUBO.color*sun_i*lightUBO.brightness;var sky_top:vec3<f32>;var sky_hor:vec3<f32>;if(sky_preset==0u){sky_top=vec3<f32>(0.5,0.7,1.0);sky_hor=vec3<f32>(0.7,0.8,0.9);}else{sky_top=vec3<f32>(0.6,0.7,0.85);sky_hor=vec3<f32>(1.0,0.8,0.6);}let yf=max(0.0f,rd.y);let grad_c=mix(sky_hor,sky_top,yf);return grad_c+sun_c;}
+
+                fn renderClouds(ray_origin: vec3<f32>, ray_direction: vec3<f32>, t_max_sky: f32, sky_preset_val: u32) -> vec4<f32> {
+                    let base_sky_color = getSkyColor(ray_direction, sky_preset_val);
+                    var accumulated_color = vec3<f32>(0.0f);
+                    var accumulated_alpha = 0.0f;
+
+                    var t_min_cloud_layer = (cloudParamsUBO.layerMinY - ray_origin.y) / ray_direction.y;
+                    var t_max_cloud_layer = (cloudParamsUBO.layerMaxY - ray_origin.y) / ray_direction.y;
+
+                    if (ray_direction.y == 0.0f) {
+                        if (ray_origin.y < cloudParamsUBO.layerMinY || ray_origin.y > cloudParamsUBO.layerMaxY) {
+                            return vec4<f32>(base_sky_color, 1.0f);
+                        }
+                        t_min_cloud_layer = 0.0f;
+                        t_max_cloud_layer = t_max_sky;
+                    }
+
+                    if (t_min_cloud_layer > t_max_cloud_layer) {
+                        let temp = t_min_cloud_layer;
+                        t_min_cloud_layer = t_max_cloud_layer;
+                        t_max_cloud_layer = temp;
+                    }
+
+                    let t_enter = max(0.0f, t_min_cloud_layer);
+                    let t_exit = min(t_max_sky, t_max_cloud_layer);
+
+                    if (t_enter >= t_exit || t_exit < 0.0f) {
+                        return vec4<f32>(base_sky_color, 1.0f);
+                    }
+
+                    let march_steps_actual = cloudParamsUBO.marchSteps;
+                    let step_size = (t_exit - t_enter) / f32(march_steps_actual);
+
+                    for (var i: u32 = 0u; i < march_steps_actual; i = i + 1u) {
+                        if (accumulated_alpha >= 0.99f) { break; }
+
+                        let t = t_enter + (f32(i) + 0.5f) * step_size;
+                        let current_pos = ray_origin + ray_direction * t;
+
+                        let time_animated_offset = vec3<f32>(timeUBO.time * cloudParamsUBO.animationSpeed * 0.02f, 0.0f, timeUBO.time * cloudParamsUBO.animationSpeed * 0.01f);
+                        let noise_val = sample3DNoiseTexture(current_pos + time_animated_offset, cloudParamsUBO.noiseScale);
+
+                        if (noise_val > cloudParamsUBO.densityThreshold) {
+                            let density_normalized = (noise_val - cloudParamsUBO.densityThreshold) / (1.0f - cloudParamsUBO.densityThreshold);
+                            let actual_density = density_normalized * cloudParamsUBO.densityMultiplier;
+
+                            let light_attenuation = exp(-actual_density * cloudParamsUBO.absorptionCoeff * step_size);
+
+                            let sun_direction = normalize(lightUBO.position.xyz);
+                            let light_intensity = max(0.0f, dot(sun_direction, ray_direction)) * lightUBO.brightness;
+
+                            let current_cloud_base_color = vec3<f32>(cloudParamsUBO.baseColorR, cloudParamsUBO.baseColorG, cloudParamsUBO.baseColorB);
+                            let cloud_color_lit = current_cloud_base_color * light_intensity * lightUBO.color;
+
+                            let step_alpha = clamp(actual_density * cloudParamsUBO.scatteringCoeff * step_size, 0.0f, 1.0f);
+                            accumulated_color += step_alpha * cloud_color_lit * light_attenuation * (1.0f - accumulated_alpha);
+                            accumulated_alpha += step_alpha * (1.0f - accumulated_alpha);
+                        }
+                    }
+
+                    let final_color = mix(base_sky_color, accumulated_color, accumulated_alpha);
+                    return vec4<f32>(final_color, 1.0f);
+                }
+
+                fn DistributionGGX(N:vec3<f32>,H:vec3<f32>,roughness:f32)->f32{let a=roughness*roughness;let a2=a*a;let NdotH=max(dot(N,H),0.0f);let NdotH2=NdotH*NdotH;let nom=a2;var den=(NdotH2*(a2-1.0f)+1.0f);den=PI*den*den;return nom/max(den,0.0000001f);}
+                fn GeometrySchlickGGX(NdotV:f32,roughness:f32)->f32{let r=(roughness+1.0f);let k=(r*r)/8.0f;let nom=NdotV;let den=NdotV*(1.0f-k)+k;return nom/max(den,0.0000001f);}
+                fn GeometrySmith(N:vec3<f32>,V:vec3<f32>,L:vec3<f32>,roughness:f32)->f32{let NdotV=max(dot(N,V),0.0f);let NdotL=max(dot(N,L),0.0f);return GeometrySchlickGGX(NdotV,roughness)*GeometrySchlickGGX(NdotL,roughness);}
+                fn FresnelSchlickPBR(cosTheta:f32,F0:vec3<f32>)->vec3<f32>{return F0+(vec3<f32>(1.0f)-F0)*pow(clamp(1.0f-cosTheta,0.0f,1.0f),5.0f);}
+                fn calculateLighting(hit_pos:vec3<f32>,N:vec3<f32>,V:vec3<f32>,time:f32,albedo:vec3<f32>,metallic:f32,roughness:f32,base_reflectivity:f32,is_water_medium:u32,gid:vec2<u32>)->vec3<f32>{var Lo=vec3<f32>(0.0f);var ambient=albedo*0.02f;if(is_water_medium==1u){ambient=albedo*0.04f;}let F0=mix(vec3<f32>(base_reflectivity),albedo,metallic);let num_samples=max(1u,raytracerUBO.shadowSamples);let light_dir_center=normalize(lightUBO.position.xyz-hit_pos);let light_dist=distance(lightUBO.position.xyz,hit_pos);var light_basis_u=normalize(cross(light_dir_center,vec3<f32>(0.0,1.0,0.0)));if(length(light_basis_u)<0.1f){light_basis_u=normalize(cross(light_dir_center,vec3<f32>(1.0,0.0,0.0)));}let light_basis_v=cross(light_basis_u,light_dir_center);for(var s_idx:u32=0u;s_idx<num_samples;s_idx=s_idx+1u){let rand_u=rand_float(vec2<f32>(f32(gid.x),f32(gid.y)),time*1.3f+f32(s_idx)*7.7f);let rand_v=rand_float(vec2<f32>(f32(gid.y),f32(gid.x)),time*0.7f+f32(s_idx)*11.3f);let angle=rand_u*2.0f*PI;let radius_s=sqrt(rand_v);let offset_x=cos(angle)*radius_s*lightUBO.size;let offset_y=sin(angle)*radius_s*lightUBO.size;let perturbed_light_pos=lightUBO.position.xyz+light_basis_u*offset_x+light_basis_v*offset_y;let L=normalize(perturbed_light_pos-hit_pos);let shadow_ray_o=hit_pos+N*MIN_DIST;let occluder_d=raymarch(Ray(shadow_ray_o,L),time,raytracerUBO.warpStrength).distance;let shadow_f=select(0.0f,1.0f,occluder_d>=light_dist-MIN_DIST);if(shadow_f>0.0f){let H=normalize(V+L);let NdotL=max(dot(N,L),0.0f);let NdotV=max(dot(N,V),0.0f);let NdotH=max(dot(N,H),0.0f);let VdotH=max(dot(V,H),0.0f);let D=DistributionGGX(N,H,roughness);let G=GeometrySmith(N,V,L,roughness);let F=FresnelSchlickPBR(VdotH,F0);let num=D*G*F;let den=4.0f*NdotV*NdotL;let spec_brdf=num/max(den,0.0000001f);let kS=F;var kD=vec3<f32>(1.0f)-kS;kD*=(1.0f-metallic);let diff_brdf=kD*albedo/PI;let radiance=lightUBO.brightness*lightUBO.color;Lo+=(diff_brdf+spec_brdf)*radiance*NdotL*shadow_f;}}Lo/=f32(num_samples);return ambient+Lo;}
+                fn snellsLaw(incident:vec3<f32>,normal:vec3<f32>,n1:f32,n2:f32)->vec3<f32>{let cosThetaI=dot(-incident,normal);let clamped_cos=clamp(cosThetaI,-1.0f,1.0f);let eta=n1/n2;let sinThetaT2=eta*eta*(1.0f-clamped_cos*clamped_cos);if(sinThetaT2>1.0f){return vec3<f32>(0.0f);}let cosThetaT=sqrt(1.0f-sinThetaT2);return eta*incident+(eta*clamped_cos-cosThetaT)*normal;}
+                fn fresnelSchlick(cos_theta:f32,n1:f32,n2:f32)->f32{let R0=pow((n1-n2)/(n1+n2),2.0f);return R0+(1.0f-R0)*pow(1.0f-cos_theta,5.0f);}
+                fn get_ior_and_normal(incident:vec3<f32>,normal:vec3<f32>,curr_ior:f32,obj_ior:f32)->array<f32,6>{var n1=curr_ior;var n2=obj_ior;var adj_norm=normal;var is_entering:f32=1.0f;if(dot(incident,normal)>0.0f){adj_norm=-normal;n1=obj_ior;n2=curr_ior;is_entering=0.0f;}return array<f32,6>(n1,n2,adj_norm.x,adj_norm.y,adj_norm.z,is_entering);}
+
+                fn get_color_from_sub_hit(ray:Ray,time:f32,is_sub_water:u32,gid:vec2<u32>)->vec3<f32>{let hit=raymarch(ray,time,raytracerUBO.warpStrength);if(!hit.is_hit){return renderClouds(ray.origin, ray.direction, MAX_DIST, raytracerUBO.skyPreset).rgb;}else if(hit.object_id==0u){let alb=vec3<f32>(0.4,0.3,0.2);return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,alb,0.0f,0.9f,0.04f,is_sub_water,gid);}else if(hit.object_id==1u){let alb=vec3<f32>(0.1,0.3,0.5);return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,alb,0.0f,0.1f,0.04f,is_sub_water,gid);}else{let s=spheres[hit.sphere_idx];return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,s.albedo_metallic.xyz,s.albedo_metallic.w,s.pbr_properties.x,s.pbr_properties.y,is_sub_water,gid);}}
+
+                // Ray-Triangle Intersection (Moller-Trumbore)
+                fn rayTriangleIntersect(ray: Ray, v0_pos: vec3<f32>, v1_pos: vec3<f32>, v2_pos: vec3<f32>) -> f32 {
+                    let edge1 = v1_pos - v0_pos;
+                    let edge2 = v2_pos - v0_pos;
+                    let h = cross(ray.direction, edge2);
+                    let a = dot(edge1, h);
+
+                    if (a > -EPSILON && a < EPSILON) { // Ray is parallel to triangle.
+                        return -1.0;
+                    }
+
+                    let f = 1.0 / a;
+                    let s_vec = ray.origin - v0_pos;
+                    let u = f * dot(s_vec, h);
+
+                    if (u < 0.0 || u > 1.0) {
+                        return -1.0;
+                    }
+
+                    let q = cross(s_vec, edge1);
+                    let v = f * dot(ray.direction, q);
+
+                    if (v < 0.0 || u + v > 1.0) {
+                        return -1.0;
+                    }
+
+                    let t = f * dot(edge2, q);
+                    if (t > EPSILON) { // Ray intersection
+                        return t;
+                    } else {
+                        return -1.0;
+                    }
+                }
+
+                // Mesh intersection logic
+                fn intersectMesh(ray: Ray, mesh_instance_idx: u32, current_closest_dist: f32) -> HitInfo {
+                    var mesh_hit_info: HitInfo;
+                    mesh_hit_info.is_hit = false;
+                    mesh_hit_info.distance = current_closest_dist;
+
+                    if (mesh_instance_idx >= raytracerUBO.numMeshInstances) {
+                        return mesh_hit_info;
+                    }
+
+                    let mesh_meta = meshInstances[mesh_instance_idx];
+
+                    for (var i = 0u; i < mesh_meta.num_triangles; i = i + 1u) {
+                       let tri_indices_struct = triangleIndexData[mesh_meta.index_offset + i];
+                       let v0_data = vertexData[mesh_meta.vertex_offset + tri_indices_struct.i0];
+                       let v1_data = vertexData[mesh_meta.vertex_offset + tri_indices_struct.i1];
+                       let v2_data = vertexData[mesh_meta.vertex_offset + tri_indices_struct.i2];
+
+                       let t_intersect = rayTriangleIntersect(ray, v0_data.position, v1_data.position, v2_data.position);
+
+                       if (t_intersect > MIN_DIST && t_intersect < mesh_hit_info.distance) {
+                           mesh_hit_info.is_hit = true;
+                           mesh_hit_info.distance = t_intersect;
+                           mesh_hit_info.hit_pos = ray.origin + ray.direction * t_intersect;
+                           mesh_hit_info.normal = normalize(cross(v1_data.position - v0_data.position, v2_data.position - v0_data.position));
+                           mesh_hit_info.sphere_idx = mesh_instance_idx;
+                           mesh_hit_info.is_water = false;
+                       }
+                    }
+                    return mesh_hit_info;
+                }
+
+                fn traceRay(initial_ray: Ray, current_time: f32, global_id_xy: vec2<u32>) -> vec4<f32> {
+                    var final_color = vec3<f32>(0.0f);
+                    var current_ray = initial_ray;
+                    var current_weight = vec3<f32>(1.0f);
+                    var current_ior = 1.0f;
+                    let water_ior = 1.33f;
+                    var is_in_water_medium_trace: u32 = 0u;
+
+                    for (var bounce_count: u32 = 0u; bounce_count < raytracerUBO.maxBounces; bounce_count = bounce_count + 1u) {
+                        var hit_info = raymarch(current_ray, current_time, raytracerUBO.warpStrength);
+
+                        if (!hit_info.is_hit) {
+                            let cloud_result = renderClouds(current_ray.origin, current_ray.direction, MAX_DIST, raytracerUBO.skyPreset);
+                            final_color += current_weight * cloud_result.rgb;
+                            break;
+                        }
+
+                        var current_hit_info = hit_info;
+                        var placeholder_sphere_idx = hit_info.sphere_idx;
+                        let sphere_material_type = spheres[placeholder_sphere_idx].pbr_properties.z;
+
+                        if (sphere_material_type == 3.0f && raytracerUBO.numMeshInstances > 0u) {
+                            let mesh_instance_idx = u32(spheres[placeholder_sphere_idx].pbr_properties.w);
+
+                            if (mesh_instance_idx < raytracerUBO.numMeshInstances) {
+                                let mesh_intersection_result = intersectMesh(current_ray, mesh_instance_idx, current_hit_info.distance);
+                                if (mesh_intersection_result.is_hit) {
+                                    current_hit_info = mesh_intersection_result;
+                                    current_hit_info.object_id = hit_info.object_id;
+                                } else {
+                                    final_color += current_weight * renderClouds(current_ray.origin, current_ray.direction, MAX_DIST, raytracerUBO.skyPreset).rgb;
+                                    break;
+                                }
+                            } else {
+                                final_color += current_weight * renderClouds(current_ray.origin, current_ray.direction, MAX_DIST, raytracerUBO.skyPreset).rgb;
+                                break;
+                            }
+                        }
+
+                        let N = current_hit_info.normal;
+                        let hit_pos = current_hit_info.hit_pos;
+                        let V = -current_ray.direction;
+                        var surface_color = vec3<f32>(0.0f);
+
+                        is_in_water_medium_trace = select(0u, 1u, current_ior > 1.01f);
+
+                        if (current_hit_info.object_id == 0u) { // Terrain
+                            let terrain_albedo = vec3<f32>(0.4f, 0.3f, 0.2f);
+                            surface_color = calculateLighting(hit_pos, N, V, current_time, terrain_albedo, 0.0f, 0.9f, 0.04f, is_in_water_medium_trace, global_id_xy);
+                            let noise_val_terrain = sample3DNoiseTexture(current_hit_info.hit_pos, 0.1f);
+                            surface_color.r += noise_val_terrain * 0.5f;
+                            final_color += current_weight * surface_color;
+                            break;
+                        }
+                        else if (current_hit_info.object_id == 1u) { // Water
+                            let water_surface_albedo = vec3<f32>(0.1f, 0.3f, 0.5f);
+                            let water_body_color_absorption = vec3<f32>(0.1f, 0.2f, 0.3f);
+                            surface_color = calculateLighting(hit_pos, N, V, current_time, water_surface_albedo, 0.0f, 0.1f, 0.04f, is_in_water_medium_trace, global_id_xy);
+                            let noise_val_water = sample3DNoiseTexture(current_hit_info.hit_pos, 0.05f);
+                            surface_color.g += noise_val_water * 0.3f;
+
+                            let iors_info = get_ior_and_normal(current_ray.direction, N, current_ior, water_ior);
+                            let n1 = iors_info[0]; let n2 = iors_info[1];
+                            let adjusted_normal_water = vec3<f32>(iors_info[2], iors_info[3], iors_info[4]);
+
+                            final_color += current_weight * surface_color;
+
+                            let reflected_dir_water = reflect(current_ray.direction, adjusted_normal_water);
+                            let reflected_ray_water = Ray(current_hit_info.hit_pos + reflected_dir_water * EPSILON, reflected_dir_water);
+
+                            let refracted_dir_water = snellsLaw(current_ray.direction, adjusted_normal_water, n1, n2);
+                            let cos_theta_i_water = dot(-current_ray.direction, adjusted_normal_water);
+                            let fresnel_reflectance_water = fresnelSchlick(cos_theta_i_water, n1, n2);
+
+                            if (length(refracted_dir_water) > 0.001f) {
+                                final_color += current_weight * fresnel_reflectance_water * get_color_from_sub_hit(reflected_ray_water, current_time, is_in_water_medium_trace, global_id_xy);
+                                current_ray = Ray(current_hit_info.hit_pos + refracted_dir_water * EPSILON * -1.0f, refracted_dir_water);
+                                current_weight *= water_body_color_absorption * (1.0f - fresnel_reflectance_water);
+                                current_ior = n2;
+                                is_in_water_medium_trace = select(0u, 1u, current_ior > 1.01f);
+                            } else {
+                                current_ray = reflected_ray_water;
+                                final_color += current_weight * fresnel_reflectance_water * get_color_from_sub_hit(reflected_ray_water, current_time, is_in_water_medium_trace, global_id_xy);
+                                current_weight *= water_surface_albedo;
+                                break;
+                            }
+                        }
+                        else {
+                            let s_material_props = spheres[placeholder_sphere_idx];
+                            let actual_material_type = u32(s_material_props.pbr_properties.z);
+
+                            var albedo : vec3<f32>;
+                            var metallic : f32;
+                            var roughness : f32;
+                            var base_reflectivity : f32;
+                            var refractive_index_object : f32 = 1.0;
+
+                            if (actual_material_type == 3u) {
+                                let base_rock_albedo = vec3<f32>(0.25f, 0.22f, 0.20f);
+                                let noise_albedo_variation = sample3DNoiseTexture(current_hit_info.hit_pos, 0.75f) * 0.15f;
+                                albedo = base_rock_albedo + noise_albedo_variation;
+                                metallic = 0.05f;
+                                let base_rock_roughness = 0.75f;
+                                let noise_roughness_variation = (sample3DNoiseTexture(current_hit_info.hit_pos, 1.5f) - 0.5f) * 0.2f;
+                                roughness = clamp(base_rock_roughness + noise_roughness_variation, 0.1f, 0.95f);
+                                base_reflectivity = 0.03f;
+
+                                surface_color = calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                                final_color += current_weight * surface_color;
+                                break;
+                            } else {
+                                albedo = s_material_props.albedo_metallic.xyz;
+                                metallic = s_material_props.albedo_metallic.w;
+                                roughness = s_material_props.pbr_properties.x;
+                                base_reflectivity = s_material_props.pbr_properties.y;
+                                refractive_index_object = s_material_props.pbr_properties.w;
+
+                                surface_color = calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                                let noise_val_sphere = sample3DNoiseTexture(current_hit_info.hit_pos, 0.2f);
+                                surface_color.r += noise_val_sphere * 0.5f;
+                                final_color += current_weight * surface_color;
+
+                                if (actual_material_type == MATERIAL_DIFFUSE) {
+                                    break;
+                                } else if (actual_material_type == MATERIAL_REFLECTIVE) {
+                                    let reflected_dir_sphere = reflect(current_ray.direction, N);
+                                    current_ray = Ray(current_hit_info.hit_pos + reflected_dir_sphere * EPSILON, reflected_dir_sphere);
+                                    current_weight *= albedo;
+                                } else if (actual_material_type == MATERIAL_REFRACTIVE) {
+                                    let iors_info_sphere = get_ior_and_normal(current_ray.direction, N, current_ior, refractive_index_object);
+                                    let n1_sphere = iors_info_sphere[0]; let n2_sphere = iors_info_sphere[1];
+                                    let adjusted_normal_sphere = vec3<f32>(iors_info_sphere[2], iors_info_sphere[3], iors_info_sphere[4]);
+
+                                    let cos_theta_i_sphere = dot(-current_ray.direction, adjusted_normal_sphere);
+                                    let fresnel_reflectance_sphere = fresnelSchlick(cos_theta_i_sphere, n1_sphere, n2_sphere);
+
+                                    let reflected_dir_sphere_refract = reflect(current_ray.direction, adjusted_normal_sphere);
+                                    let reflected_ray_sphere_refract = Ray(current_hit_info.hit_pos + reflected_dir_sphere_refract * EPSILON, reflected_dir_sphere_refract);
+
+                                    final_color += current_weight * fresnel_reflectance_sphere * get_color_from_sub_hit(reflected_ray_sphere_refract, current_time, is_in_water_medium_trace, global_id_xy);
+
+                                    let refracted_dir_sphere = snellsLaw(current_ray.direction, adjusted_normal_sphere, n1_sphere, n2_sphere);
+
+                                    if (length(refracted_dir_sphere) > 0.001f) {
+                                        current_ray = Ray(current_hit_info.hit_pos + refracted_dir_sphere * EPSILON * -1.0f, refracted_dir_sphere);
+                                        current_weight *= (1.0f - fresnel_reflectance_sphere) * albedo;
+                                        current_ior = n2_sphere;
+                                        is_in_water_medium_trace = select(0u, 1u, current_ior > 1.01f);
+                                    } else {
+                                        current_ray = reflected_ray_sphere_refract;
+                                        current_weight *= albedo; // Keep this as albedo for TIR reflection color
+                                    }
+                                }
+                            }
+                        }
+
+                        if (max(max(current_weight.x, current_weight.y), current_weight.z) < 0.01f) {
+                            break;
+                        }
+                    }
+                    return vec4<f32>(final_color, 1.0f);
+                }
+
+                @compute @workgroup_size(8, 8)
+                fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+                    let screen_width = cameraUBO.resolution.x;
+                    let screen_height = cameraUBO.resolution.y;
+
+                    if (global_id.x >= u32(screen_width) || global_id.y >= u32(screen_height)) {
+                        return;
+                    }
+
+                    var final_accumulated_color = vec3<f32>(0.0f);
+                    let frag_coord_xy = vec2<f32>(f32(global_id.x), f32(global_id.y));
+
+                    for (var dof_idx: u32 = 0u; dof_idx < raytracerUBO.dofSamples; dof_idx = dof_idx + 1u) {
+                        let rand_u_dof = rand_float(frag_coord_xy, timeUBO.time * 2.1f + f32(dof_idx) * 5.9f);
+                        let rand_v_dof = rand_float(frag_coord_xy.yx, timeUBO.time * 1.7f + f32(dof_idx) * 9.1f);
+
+                        let angle_dof = rand_u_dof * 2.0f * PI;
+                        let radius_scale = sqrt(rand_v_dof);
+                        let aperture_offset_x = cos(angle_dof) * radius_scale * raytracerUBO.apertureSize;
+                        let aperture_offset_y = sin(angle_dof) * radius_scale * raytracerUBO.apertureSize;
+
+                        let perturbed_origin = cameraUBO.position.xyz +
+                                               cameraUBO.right.xyz * aperture_offset_x +
+                                               cameraUBO.up.xyz * aperture_offset_y;
+
+                        let ndc_x: f32 = (f32(global_id.x) / screen_width) * 2.0f - 1.0f;
+                        let ndc_y: f32 = (1.0f - f32(global_id.y) / screen_height) * 2.0f - 1.0f;
+
+                        let aspect_ratio = cameraUBO.aspect;
+                        let fov_rad = cameraUBO.fovy;
+
+                        let ray_x = ndc_x * aspect_ratio * tan(fov_rad / 2.0f);
+                        let ray_y = ndc_y * tan(fov_rad / 2.0f);
+                        let ray_z = -1.0f;
+
+                        let ray_dir_camera_space = normalize(vec3<f32>(ray_x, ray_y, ray_z));
+
+                        let ideal_ray_direction_world = normalize(
+                            ray_dir_camera_space.x * cameraUBO.right.xyz +
+                            ray_dir_camera_space.y * cameraUBO.up.xyz +
+                            ray_dir_camera_space.z * cameraUBO.forward.xyz
+                        );
+
+                        let focal_point = cameraUBO.position.xyz + ideal_ray_direction_world * raytracerUBO.focalDistance;
+
+                        let dof_ray_direction = normalize(focal_point - perturbed_origin);
+                        let dof_ray = Ray(perturbed_origin, dof_ray_direction);
+
+                        final_accumulated_color += traceRay(dof_ray, timeUBO.time, global_id.xy).xyz;
+                    }
+
+                    let final_color_per_pixel = final_accumulated_color / f32(raytracerUBO.dofSamples);
+
+                    let previous_color_vec4 = textureLoad(inputTexture, vec2<i32>(global_id.xy), 0u);
+                    let current_frame_f32 = f32(timeUBO.frame_count);
+                    let blend_factor = 1.0f / (current_frame_f32 + 1.0f);
+                    let new_accumulated_color = mix(previous_color_vec4.rgb, final_color_per_pixel, blend_factor);
+
+                    textureStore(outputTexture, vec2<i32>(global_id.xy), vec4<f32>(new_accumulated_color, 1.0f));
+                }
+                \`;
                     this.uiManager.setLoadingStatus("ShaderManager initialized. Initializing SceneManager...");
 
                     this.sceneManager = new SceneManager(this);
@@ -1671,7 +2318,13 @@ const bvhWorkerScript = `
                 this.waterUBOBuffer = this.resourceManager.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Water UBO");
                 this.terrainUBOBuffer = this.resourceManager.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Terrain UBO");
                 this.raytracerUBOBuffer = this.resourceManager.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Raytracer Params UBO");
-                this.cloudParamsUBOBuffer = this.resourceManager.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Cloud Params UBO"); // 12 floats * 4 bytes/float = 48 bytes
+                this.cloudParamsUBOBuffer = this.resourceManager.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Cloud Params UBO");
+
+                // Mesh Data Buffers (initially small, SceneManager will resize and fill)
+                this.meshInstanceDataBuffer = this.resourceManager.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }, "Mesh Instance Data Buffer"); // Min size for empty array
+                this.vertexDataBuffer = this.resourceManager.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }, "Vertex Data Buffer");
+                this.triangleIndexDataBuffer = this.resourceManager.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST }, "Triangle Index Data Buffer");
+
 
                 this.uiManager.setLoadingStatus("Preparing rendering assets (NovaRayEngine)...");
                 const renderQuadVerticesData = new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0]);
@@ -1696,11 +2349,20 @@ const bvhWorkerScript = `
                                     { binding: 6, visibility: GPUShaderStage.COMPUTE, storageTexture: { format: 'rgba32float', access: 'write-only' } },
                                     { binding: 7, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } },
                                     { binding: 8, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },      // For 3D Noise Sampler
-                                    { binding: 9, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '3d' } }, // For 3D Noise Texture
-                                    { binding: 10, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform'} } // For CloudParamsUBO
+                                    { binding: 9, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '3d' } },
+                                    { binding: 10, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform'} }
                                 ]
                             }),
-                            this.device.createBindGroupLayout({ entries: [ { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, ] }),
+                            this.device.createBindGroupLayout({
+                                entries: [
+                                    { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // spheres / mesh bounding spheres
+                                    { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // bvhNodes
+                                    { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // primitiveIndices (for BVH leaves)
+                                    { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // meshInstances
+                                    { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // vertexData
+                                    { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, // triangleIndexData
+                                ]
+                            }),
                         ]
                     }),
                     compute: { module: computeShaderModule, entryPoint: 'main' }
@@ -1844,7 +2506,8 @@ const bvhWorkerScript = `
                     !this.cameraUBOBuffer || !this.lightUBOBuffer || !this.timeUBOBuffer ||
                     !this.waterUBOBuffer || !this.terrainUBOBuffer || !this.raytracerUBOBuffer ||
                     !this.sphereDataBuffer || !this.bvhNodesBuffer || !this.primitiveIndicesBuffer ||
-                    !this.noiseSampler || !this.noiseTexture3DView || !this.cloudParamsUBOBuffer) { // Added cloudParamsUBOBuffer check
+                    !this.meshInstanceDataBuffer || !this.vertexDataBuffer || !this.triangleIndexDataBuffer || // Added mesh buffers
+                    !this.noiseSampler || !this.noiseTexture3DView || !this.cloudParamsUBOBuffer) {
                     console.warn("Skipping compute bind group creation: essential resources not ready.");
                     return;
                 }
@@ -1874,6 +2537,9 @@ const bvhWorkerScript = `
                         { binding: 0, resource: { buffer: this.sphereDataBuffer } },
                         { binding: 1, resource: { buffer: this.bvhNodesBuffer } },
                         { binding: 2, resource: { buffer: this.primitiveIndicesBuffer } },
+                        { binding: 3, resource: { buffer: this.meshInstanceDataBuffer } },
+                        { binding: 4, resource: { buffer: this.vertexDataBuffer } },
+                        { binding: 5, resource: { buffer: this.triangleIndexDataBuffer } },
                     ],
                 });
             },
@@ -2022,10 +2688,10 @@ const bvhWorkerScript = `
 
                 /** @type {Array<object>} Array holding all sphere objects in the scene. */
                 this.spheres = [];
-                /** @type {number} The target number of spheres for the scene, controlled by UI. */
-                this.targetSphereCount = 5;
+                /** @type {number} The target number of regular (non-rock) spheres for the scene, controlled by UI. */
+                this.targetSphereCount = 5; // This now refers to non-rock spheres
                 /** @type {number} The last actual number of spheres generated, for change detection. */
-                this.lastSphereCount = 5;
+                this.lastSphereCount = 5; // This also refers to non-rock spheres
                 /** @type {{bvhNodes: Array<BvhNode>, primitiveIndices: Array<number>}} Stores the result of the BVH build. */
                 this.currentBvhResult = { bvhNodes: [], primitiveIndices: [] };
 
@@ -2063,6 +2729,17 @@ const bvhWorkerScript = `
                 this.MATERIAL_REFLECTIVE = 1;
                 this.MATERIAL_REFRACTIVE = 2;
 
+                // Rock Generation Properties
+                this.rockCount = 2;
+                this.rockSubdivisions = 1;
+                this.rockNumScrapes = 15;
+                this.rockScrapeConfig = {
+                    strength: 0.3,
+                    radiusMin: 0.4,
+                    radiusMax: 0.8
+                };
+                this.rockVertexNoiseStrength = 0.05;
+
                 // Cloud Parameters (default values)
                 this.cloudLayerMinY = 20.0;
                 this.cloudLayerMaxY = 30.0;
@@ -2080,6 +2757,29 @@ const bvhWorkerScript = `
                 }
                 this.updateCloudParamsUniformBuffer(); // Initialize UBO with default values
             }
+
+            _regenerateSceneObjectsAndReset() {
+                // targetSphereCount is the count for non-rock spheres.
+                this.populateInitialSpheres(this.targetSphereCount);
+                // updateGPUBuffers was already modified to handle meshData and pack it.
+                // It also updates RaytracerParams with the number of mesh instances.
+                // A valid BVH result is needed, even if it's empty from a previous state or initial.
+                if (!this.currentBvhResult) { // Ensure it exists
+                    this.currentBvhResult = { bvhNodes: [], primitiveIndices: [] };
+                }
+                this.updateGPUBuffers(this.spheres, this.currentBvhResult);
+                this.novaRayEngine.resetAccumulation();
+            }
+
+            // --- Rock Property Setters ---
+            setRockCount(value) { value = parseInt(value); if (this.rockCount !== value && value >= 0) { this.rockCount = value; this._regenerateSceneObjectsAndReset(); } }
+            setRockSubdivisions(value) { value = parseInt(value); if (this.rockSubdivisions !== value && value >= 0) { this.rockSubdivisions = value; this._regenerateSceneObjectsAndReset(); } }
+            setRockNumScrapes(value) { value = parseInt(value); if (this.rockNumScrapes !== value && value >= 0) { this.rockNumScrapes = value; this._regenerateSceneObjectsAndReset(); } }
+            setRockScrapeStrength(value) { value = parseFloat(value); if (this.rockScrapeConfig.strength !== value && value >= 0) { this.rockScrapeConfig.strength = value; this._regenerateSceneObjectsAndReset(); } }
+            setRockScrapeRadiusMin(value) { value = parseFloat(value); if (this.rockScrapeConfig.radiusMin !== value && value >= 0) { this.rockScrapeConfig.radiusMin = value; this._regenerateSceneObjectsAndReset(); } }
+            setRockScrapeRadiusMax(value) { value = parseFloat(value); if (this.rockScrapeConfig.radiusMax !== value && value >= 0) { this.rockScrapeConfig.radiusMax = value; this._regenerateSceneObjectsAndReset(); } }
+            setRockVertexNoiseStrength(value) { value = parseFloat(value); if (this.rockVertexNoiseStrength !== value && value >= 0) { this.rockVertexNoiseStrength = value; this._regenerateSceneObjectsAndReset(); } }
+
 
             // --- Camera Movement and Rotation Methods ---
             /**
@@ -2182,9 +2882,9 @@ const bvhWorkerScript = `
             setSkyPreset(value) { value = parseInt(value); if (this.skyPreset !== value) { this.skyPreset = value; this.updateRaytracerParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setTargetSphereCount(count) {
                 const newCount = parseInt(count);
-                if (this.targetSphereCount !== newCount) {
-                    this.targetSphereCount = newCount;
-                    this.manageSpheres();
+                if (this.targetSphereCount !== newCount && newCount >=0) { // Ensure non-negative
+                    this.targetSphereCount = newCount; // This now refers to non-rock spheres
+                    this._regenerateSceneObjectsAndReset();
                 }
             }
 
@@ -2235,11 +2935,46 @@ const bvhWorkerScript = `
              * @param {number} count - The total number of spheres to generate (including ground sphere).
              * @returns {Array<object>} The array of generated sphere objects.
              */
-            populateInitialSpheres(count) {
+            // Helper to calculate bounding sphere for a set of vertices
+            _calculateBoundingSphere(positions) {
+                if (!positions || positions.length === 0) {
+                    return { center: [0,0,0], radius: 0 };
+                }
+                let min = [Infinity, Infinity, Infinity];
+                let max = [-Infinity, -Infinity, -Infinity];
+                for (let i = 0; i < positions.length; i += 3) {
+                    min[0] = Math.min(min[0], positions[i]);
+                    min[1] = Math.min(min[1], positions[i+1]);
+                    min[2] = Math.min(min[2], positions[i+2]);
+                    max[0] = Math.max(max[0], positions[i]);
+                    max[1] = Math.max(max[1], positions[i+1]);
+                    max[2] = Math.max(max[2], positions[i+2]);
+                }
+                const center = [
+                    (min[0] + max[0]) / 2,
+                    (min[1] + max[1]) / 2,
+                    (min[2] + max[2]) / 2
+                ];
+                let radius = 0;
+                for (let i = 0; i < positions.length; i += 3) {
+                    const distSq = (positions[i] - center[0])**2 +
+                                 (positions[i+1] - center[1])**2 +
+                                 (positions[i+2] - center[2])**2;
+                    radius = Math.max(radius, Math.sqrt(distSq));
+                }
+                return { center, radius };
+            }
+
+            populateInitialSpheres(regularSphereCount) { // Renamed 'count' to 'regularSphereCount' for clarity
                 const newSpheres = [];
                 const sphereMinRadius = 0.5;
                 const sphereMaxRadius = 1.5;
+                // Ensure ProceduralMeshGenerator is available
+                if (!this.meshGenerator) {
+                    this.meshGenerator = new ProceduralMeshGenerator();
+                }
 
+                // Ground Sphere (always present, not part of 'regularSphereCount' or 'rockCount')
                 newSpheres.push({
                     position: [0.0, -100.5, 0.0], radius: 100.0,
                     color: [0.7, 0.7, 0.7],
@@ -2248,10 +2983,12 @@ const bvhWorkerScript = `
                     metallic: 0.0,
                     refractiveIndex: 1.0,
                     materialType: this.MATERIAL_DIFFUSE,
-                    originalIndex: 0
+                    originalIndex: 0, // Remains 0
+                    isProceduralRock: false
                 });
 
-                for (let i = 1; i < count; ++i) {
+                // Generate Regular Spheres first
+                for (let i = 0; i < regularSphereCount; ++i) {
                     let materialType;
                     const r = Math.random();
                     if (r < 0.4) materialType = this.MATERIAL_DIFFUSE;
@@ -2261,13 +2998,14 @@ const bvhWorkerScript = `
                     let s = {
                         position: [0, 0, 0],
                         radius: sphereMinRadius + Math.random() * (sphereMaxRadius - sphereMinRadius),
-                        color: [0, 0, 0],
+                        color: [0, 0, 0], // Will be set below
                         baseReflectivity: 0.04,
-                        perPixelRoughness: 0.0,
-                        metallic: 0.0,
-                        refractiveIndex: 1.0,
+                        perPixelRoughness: 0.0, // Will be set below
+                        metallic: 0.0, // Will be set for reflective
+                        refractiveIndex: 1.0, // Default, will be set for refractive
                         materialType: materialType,
-                        originalIndex: i
+                        originalIndex: newSpheres.length,
+                        isProceduralRock: false
                     };
 
                     let attempts = 0; const max_attempts = 50; let collided;
@@ -2278,7 +3016,6 @@ const bvhWorkerScript = `
                         s.position[1] = s.radius + Math.random() * 3;
                         s.position[2] = (Math.random() - 0.5) * 15;
                         for (let j = 0; j < newSpheres.length; ++j) {
-                            if (newSpheres[j] === s) continue;
                             if (distanceSq(s.position, newSpheres[j].position) < (s.radius + newSpheres[j].radius + 0.5)**2) {
                                 collided = true; break;
                             }
@@ -2286,29 +3023,82 @@ const bvhWorkerScript = `
                         attempts++;
                     } while (collided && attempts < max_attempts);
 
-
-                    if (materialType === this.MATERIAL_DIFFUSE) {
-                        s.perPixelRoughness = Math.random() * 0.7 + 0.3;
-                        s.color = [Math.random(), Math.random(), Math.random()];
-                    } else if (materialType === this.MATERIAL_REFLECTIVE) {
-                        s.perPixelRoughness = Math.random() * 0.1; s.metallic = 1.0;
-                        s.color = [Math.random() * 0.7 + 0.3, Math.random() * 0.7 + 0.3, Math.random() * 0.7 + 0.3];
-                    } else if (materialType === this.MATERIAL_REFRACTIVE) {
-                        s.perPixelRoughness = Math.random() * 0.1;
-                        s.refractiveIndex = this.globalRefractiveIndex;
-                        s.color = [Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5];
+                    if (!collided) {
+                        if (materialType === this.MATERIAL_DIFFUSE) {
+                            s.perPixelRoughness = Math.random() * 0.7 + 0.3;
+                            s.color = [Math.random(), Math.random(), Math.random()];
+                        } else if (materialType === this.MATERIAL_REFLECTIVE) {
+                            s.perPixelRoughness = Math.random() * 0.1; s.metallic = 1.0;
+                            s.color = [Math.random() * 0.7 + 0.3, Math.random() * 0.7 + 0.3, Math.random() * 0.7 + 0.3];
+                        } else if (materialType === this.MATERIAL_REFRACTIVE) {
+                            s.perPixelRoughness = Math.random() * 0.1;
+                            s.refractiveIndex = this.globalRefractiveIndex;
+                            s.color = [Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5, Math.random() * 0.5 + 0.5];
+                        }
+                        newSpheres.push(s);
                     }
-                    newSpheres.push(s);
                 }
+
+                // Generate Procedural Rocks
+                for (let r_idx = 0; r_idx < this.rockCount; r_idx++) {
+                    const rockGenConfig = {
+                        subdivisions: this.rockSubdivisions,
+                        numScrapes: this.rockNumScrapes,
+                        scrapeStrength: this.rockScrapeConfig.strength,
+                        scrapeRadiusMin: this.rockScrapeConfig.radiusMin,
+                        scrapeRadiusMax: this.rockScrapeConfig.radiusMax,
+                        noiseStrength: this.rockVertexNoiseStrength
+                    };
+                    const rockData = this.meshGenerator.generateRock(rockGenConfig);
+                    const boundingSphere = this._calculateBoundingSphere(rockData.positions);
+
+                    if (boundingSphere && boundingSphere.radius > 0) {
+                        let rockPlaceholder = {
+                            position: boundingSphere.center, // Will be randomized
+                            radius: boundingSphere.radius,
+                            color: [0.5, 0.5, 0.55],
+                            baseReflectivity: 0.04,
+                            perPixelRoughness: 0.8,
+                            metallic: 0.01,
+                            refractiveIndex: 1.0,
+                            materialType: 3,
+                            isProceduralRock: true,
+                            meshData: rockData,
+                            originalIndex: newSpheres.length
+                        };
+
+                        let attempts = 0; const max_attempts = 20; let collided;
+                        const distanceSq = (p1, p2) => (p1[0]-p2[0])**2 + (p1[1]-p2[1])**2 + (p1[2]-p2[2])**2;
+                        do {
+                            collided = false;
+                            rockPlaceholder.position[0] = (Math.random() - 0.5) * 20;
+                            rockPlaceholder.position[1] = rockPlaceholder.radius + Math.random() * 2;
+                            rockPlaceholder.position[2] = (Math.random() - 0.5) * 20;
+                            for (let j = 0; j < newSpheres.length; ++j) {
+                                if (distanceSq(rockPlaceholder.position, newSpheres[j].position) < (rockPlaceholder.radius + newSpheres[j].radius + 1.0)**2) {
+                                    collided = true; break;
+                                }
+                            }
+                            attempts++;
+                        } while (collided && attempts < max_attempts);
+
+                        if (!collided) {
+                           newSpheres.push(rockPlaceholder);
+                        }
+                    }
+                }
+
                 this.spheres = newSpheres;
 
                 if (this.globalWarpStrength > 0) {
                     this.spheres.forEach(sphere => {
                         if (sphere.originalIndex === 0) return;
-                        const warpedPos = this.applyDomainWarp(sphere.position, this.globalWarpStrength);
-                        sphere.position[0] = warpedPos[0];
-                        sphere.position[1] = warpedPos[1];
-                        sphere.position[2] = warpedPos[2];
+                        if (!sphere.isProceduralRock) {
+                            const warpedPos = this.applyDomainWarp(sphere.position, this.globalWarpStrength);
+                            sphere.position[0] = warpedPos[0];
+                            sphere.position[1] = warpedPos[1];
+                            sphere.position[2] = warpedPos[2];
+                        }
                     });
                 }
                 return newSpheres;
@@ -2370,9 +3160,78 @@ const bvhWorkerScript = `
                     let offset = i * SPHERE_FLOAT_COUNT;
                     sphereRawData[offset + 0] = s.position[0]; sphereRawData[offset + 1] = s.position[1]; sphereRawData[offset + 2] = s.position[2]; sphereRawData[offset + 3] = s.radius;
                     sphereRawData[offset + 4] = s.color[0]; sphereRawData[offset + 5] = s.color[1]; sphereRawData[offset + 6] = s.color[2]; sphereRawData[offset + 7] = s.metallic;
-                    sphereRawData[offset + 8] = s.perPixelRoughness; sphereRawData[offset + 9] = s.baseReflectivity; sphereRawData[offset + 10] = s.materialType; sphereRawData[offset + 11] = s.refractiveIndex;
+                    // pbr_properties: .x = roughness, .y = baseReflectivity, .z = materialType, .w = refractiveIndex OR meshInstanceIndex if rock
+                    sphereRawData[offset + 8] = s.perPixelRoughness;
+                    sphereRawData[offset + 9] = s.baseReflectivity;
+                    sphereRawData[offset + 10] = s.materialType; // This is pbr_properties.z (MATERIAL_DIFFUSE, _REFLECTIVE, _REFRACTIVE, or 3 for rock)
+                    // Store meshInstance index in .w for rocks, otherwise IOR. Need to track meshInstance index.
+                    // This will be done when processing proceduralRocks later. For now, placeholder.
+                    sphereRawData[offset + 11] = s.refractiveIndex; // Initial placeholder, will be overwritten for rocks
                 });
 
+                // --- Mesh Data Buffer Updates ---
+                const proceduralRocks = newSpheresData.filter(s => s.isProceduralRock && s.meshData);
+                let totalVertices = 0;
+                let totalTriangles = 0;
+                proceduralRocks.forEach(rock => {
+                    totalVertices += rock.meshData.positions.length / 3;
+                    totalTriangles += rock.meshData.indices.length / 3;
+                });
+
+                const MESH_INSTANCE_FIELDS = 4; // vertex_offset, index_offset, num_triangles, material_id (all u32)
+                const meshInstanceRawData = new Uint32Array(proceduralRocks.length * MESH_INSTANCE_FIELDS);
+
+                const VERTEX_FIELDS = 6; // position (3 f32) + normal (3 f32)
+                const allVertexData = new Float32Array(totalVertices * VERTEX_FIELDS);
+
+                const TRIANGLE_INDICES_PER_TRIANGLE = 3;
+                const allTriangleIndexData = new Uint32Array(totalTriangles * TRIANGLE_INDICES_PER_TRIANGLE);
+
+                let currentVertexOffset = 0;
+                let currentIndexBufferOffset = 0;
+                let currentMeshInstanceIdx = 0;
+
+                proceduralRocks.forEach(rock => {
+                    const mesh = rock.meshData;
+                    const numMeshVertices = mesh.positions.length / 3;
+                    const numMeshTriangles = mesh.indices.length / 3;
+
+                    meshInstanceRawData[currentMeshInstanceIdx * MESH_INSTANCE_FIELDS + 0] = currentVertexOffset;
+                    meshInstanceRawData[currentMeshInstanceIdx * MESH_INSTANCE_FIELDS + 1] = currentIndexBufferOffset;
+                    meshInstanceRawData[currentMeshInstanceIdx * MESH_INSTANCE_FIELDS + 2] = numMeshTriangles;
+                    meshInstanceRawData[currentMeshInstanceIdx * MESH_INSTANCE_FIELDS + 3] = 0; // Placeholder material_id for rock (e.g., an index into a future material array)
+
+                    // Update the corresponding sphere entry's pbr_properties.w to store this mesh instance index
+                    const sphereIndexInRawData = rock.originalIndex !== undefined ? rock.originalIndex : -1;
+                    if (sphereIndexInRawData !== -1 && sphereIndexInRawData < newSpheresData.length) {
+                        // Assuming newSpheresData[sphereIndexInRawData] is the rock placeholder
+                        let offset = sphereIndexInRawData * SPHERE_FLOAT_COUNT;
+                        sphereRawData[offset + 11] = currentMeshInstanceIdx; // Store the mesh instance index
+                    } else {
+                        console.warn("Could not find rock placeholder in sphereRawData to update meshInstanceIndex", rock);
+                    }
+                    currentMeshInstanceIdx++;
+
+
+                    for (let i = 0; i < numMeshVertices; i++) {
+                        let vertexBase = (currentVertexOffset + i) * VERTEX_FIELDS;
+                        allVertexData[vertexBase + 0] = mesh.positions[i * 3 + 0];
+                        allVertexData[vertexBase + 1] = mesh.positions[i * 3 + 1];
+                        allVertexData[vertexBase + 2] = mesh.positions[i * 3 + 2];
+                        allVertexData[vertexBase + 3] = mesh.normals[i * 3 + 0];
+                        allVertexData[vertexBase + 4] = mesh.normals[i * 3 + 1];
+                        allVertexData[vertexBase + 5] = mesh.normals[i * 3 + 2];
+                    }
+
+                    for (let i = 0; i < mesh.indices.length; i++) {
+                        allTriangleIndexData[currentIndexBufferOffset + i] = mesh.indices[i] + currentVertexOffset;
+                    }
+
+                    currentVertexOffset += numMeshVertices;
+                    currentIndexBufferOffset += mesh.indices.length;
+                });
+
+                // Now that sphereRawData has been updated for rocks, write it.
                 if (engine.sphereDataBuffer) { engine.sphereDataBuffer.destroy(); }
                 engine.sphereDataBuffer = engine.resourceManager.createBuffer({
                     size: sphereRawData.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -2404,8 +3263,16 @@ const bvhWorkerScript = `
                 const primitiveIndicesFlat = new Uint32Array(bvhData.primitiveIndices);
 
                 if (engine.bvhNodesBuffer) { engine.bvhNodesBuffer.destroy(); }
+                engine.sphereDataBuffer = engine.resourceManager.createBuffer({
+                    size: sphereRawData.byteLength > 0 ? sphereRawData.byteLength : 16, // Min size for empty
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                }, "Sphere Data Buffer (SceneManager)");
+                if (sphereRawData.byteLength > 0) engine.device.queue.writeBuffer(engine.sphereDataBuffer, 0, sphereRawData);
+
+
+                if (engine.bvhNodesBuffer) { engine.bvhNodesBuffer.destroy(); }
                 engine.bvhNodesBuffer = engine.resourceManager.createBuffer({
-                    size: bvhNodesFlat.byteLength > 0 ? bvhNodesFlat.byteLength : 4,
+                    size: bvhNodesFlat.byteLength > 0 ? bvhNodesFlat.byteLength : 16,
                     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
                 }, "BVH Nodes Buffer (SceneManager)");
                 if (bvhNodesFlat.byteLength > 0) engine.device.queue.writeBuffer(engine.bvhNodesBuffer, 0, bvhNodesFlat);
@@ -2413,12 +3280,36 @@ const bvhWorkerScript = `
 
                 if (engine.primitiveIndicesBuffer) { engine.primitiveIndicesBuffer.destroy(); }
                 engine.primitiveIndicesBuffer = engine.resourceManager.createBuffer({
-                    size: primitiveIndicesFlat.byteLength > 0 ? primitiveIndicesFlat.byteLength : 4,
+                    size: primitiveIndicesFlat.byteLength > 0 ? primitiveIndicesFlat.byteLength : 16,
                     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
                 }, "Primitive Indices Buffer (SceneManager)");
                 if (primitiveIndicesFlat.byteLength > 0) engine.device.queue.writeBuffer(engine.primitiveIndicesBuffer, 0, primitiveIndicesFlat);
 
-                this.updateRaytracerParamsUniformBuffer();
+
+                if (engine.meshInstanceDataBuffer) engine.meshInstanceDataBuffer.destroy();
+                engine.meshInstanceDataBuffer = engine.resourceManager.createBuffer({
+                    size: meshInstanceRawData.byteLength > 0 ? meshInstanceRawData.byteLength : 16,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                }, "Mesh Instance Data Buffer");
+                if (meshInstanceRawData.byteLength > 0) engine.device.queue.writeBuffer(engine.meshInstanceDataBuffer, 0, meshInstanceRawData);
+
+                if (engine.vertexDataBuffer) engine.vertexDataBuffer.destroy();
+                engine.vertexDataBuffer = engine.resourceManager.createBuffer({
+                    size: allVertexData.byteLength > 0 ? allVertexData.byteLength : 16,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                }, "Vertex Data Buffer");
+                if (allVertexData.byteLength > 0) engine.device.queue.writeBuffer(engine.vertexDataBuffer, 0, allVertexData);
+
+                if (engine.triangleIndexDataBuffer) engine.triangleIndexDataBuffer.destroy();
+                engine.triangleIndexDataBuffer = engine.resourceManager.createBuffer({
+                    size: allTriangleIndexData.byteLength > 0 ? allTriangleIndexData.byteLength : 16,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+                }, "Triangle Index Data Buffer");
+                if (allTriangleIndexData.byteLength > 0) engine.device.queue.writeBuffer(engine.triangleIndexDataBuffer, 0, allTriangleIndexData);
+
+                if (engine.uiManager) engine.uiManager.setLoadingStatus(`Mesh buffers updated: ${proceduralRocks.length} meshes, ${totalVertices} vertices, ${totalTriangles} triangles.`);
+
+                this.updateRaytracerParamsUniformBuffer(proceduralRocks.length); // Pass the number of actual mesh instances
                 this.novaRayEngine.createComputeBindGroups();
             }
 
@@ -2532,21 +3423,27 @@ const bvhWorkerScript = `
                 engine.device.queue.writeBuffer(engine.terrainUBOBuffer, 0, terrainData);
             }
             /** Updates the main raytracer parameters uniform buffer. */
-            updateRaytracerParamsUniformBuffer() {
+            updateRaytracerParamsUniformBuffer(numMeshInstances = 0) { // numMeshInstances parameter added and used
                 const engine = this.novaRayEngine;
                 if (!engine.device || !engine.raytracerUBOBuffer || !engine.resourceManager) return;
-                const raytracerData = new Float32Array(12);
+                const raytracerData = new Float32Array(12); // 12 floats = 48 bytes
                 const raytracerDataUintView = new Uint32Array(raytracerData.buffer);
+
                 raytracerDataUintView[0] = this.maxBounces;
                 raytracerDataUintView[1] = this.maxRaymarchSteps;
                 raytracerDataUintView[2] = this.shadowSamples;
                 raytracerDataUintView[3] = this.dofSamples;
+
                 raytracerDataUintView[4] = this.currentBvhResult.bvhNodes.length;
-                raytracerDataUintView[5] = this.spheres.length;
+                raytracerDataUintView[5] = this.spheres.length; // Number of sphere entries (placeholders for BVH)
                 raytracerDataUintView[6] = this.skyPreset;
+                raytracerDataUintView[7] = numMeshInstances; // Store the actual number of mesh instances
+
                 raytracerData[8] = this.globalWarpStrength;
                 raytracerData[9] = this.camera.focalDistance;
                 raytracerData[10] = this.camera.apertureSize;
+                // raytracerData[11] is _pad1:f32, can be left as 0.0, default initialization of Float32Array is 0.
+
                 engine.device.queue.writeBuffer(engine.raytracerUBOBuffer, 0, raytracerData);
             }
 
@@ -2665,6 +3562,22 @@ const bvhWorkerScript = `
                 this.sunnyDayButton = document.getElementById('sunnyDayButton');
                 this.duskButton = document.getElementById('duskButton');
                 this.fpsCounterElement = document.getElementById('fps-counter');
+
+                // Rock Controls
+                this.rockCountSlider = document.getElementById('rockCountSlider');
+                this.rockCountValueSpan = document.getElementById('rockCountValue');
+                this.rockSubdivisionsSlider = document.getElementById('rockSubdivisionsSlider');
+                this.rockSubdivisionsValueSpan = document.getElementById('rockSubdivisionsValue');
+                this.rockNumScrapesSlider = document.getElementById('rockNumScrapesSlider');
+                this.rockNumScrapesValueSpan = document.getElementById('rockNumScrapesValue');
+                this.rockScrapeStrengthSlider = document.getElementById('rockScrapeStrengthSlider');
+                this.rockScrapeStrengthValueSpan = document.getElementById('rockScrapeStrengthValue');
+                this.rockScrapeRadiusMinSlider = document.getElementById('rockScrapeRadiusMinSlider');
+                this.rockScrapeRadiusMinValueSpan = document.getElementById('rockScrapeRadiusMinValue');
+                this.rockScrapeRadiusMaxSlider = document.getElementById('rockScrapeRadiusMaxSlider');
+                this.rockScrapeRadiusMaxValueSpan = document.getElementById('rockScrapeRadiusMaxValue');
+                this.rockVertexNoiseStrengthSlider = document.getElementById('rockVertexNoiseStrengthSlider');
+                this.rockVertexNoiseStrengthValueSpan = document.getElementById('rockVertexNoiseStrengthValue');
 
                 // Cloud Controls
                 this.cloudLayerMinYSlider = document.getElementById('cloudLayerMinYSlider'); this.cloudLayerMinYValue = document.getElementById('cloudLayerMinYValue');
@@ -2795,6 +3708,15 @@ const bvhWorkerScript = `
                 if (sm.skyPreset === 0) { this.sunnyDayButton.classList.add('active'); this.duskButton.classList.remove('active'); }
                 else { this.duskButton.classList.add('active'); this.sunnyDayButton.classList.remove('active'); }
 
+                // Initialize Rock Controls UI
+                this.updateSliderValueDisplay(this.rockCountSlider, this.rockCountValueSpan, 0); this.rockCountSlider.value = sm.rockCount;
+                this.updateSliderValueDisplay(this.rockSubdivisionsSlider, this.rockSubdivisionsValueSpan, 0); this.rockSubdivisionsSlider.value = sm.rockSubdivisions;
+                this.updateSliderValueDisplay(this.rockNumScrapesSlider, this.rockNumScrapesValueSpan, 0); this.rockNumScrapesSlider.value = sm.rockNumScrapes;
+                this.updateSliderValueDisplay(this.rockScrapeStrengthSlider, this.rockScrapeStrengthValueSpan, 2); this.rockScrapeStrengthSlider.value = sm.rockScrapeConfig.strength;
+                this.updateSliderValueDisplay(this.rockScrapeRadiusMinSlider, this.rockScrapeRadiusMinValueSpan, 2); this.rockScrapeRadiusMinSlider.value = sm.rockScrapeConfig.radiusMin;
+                this.updateSliderValueDisplay(this.rockScrapeRadiusMaxSlider, this.rockScrapeRadiusMaxValueSpan, 2); this.rockScrapeRadiusMaxSlider.value = sm.rockScrapeConfig.radiusMax;
+                this.updateSliderValueDisplay(this.rockVertexNoiseStrengthSlider, this.rockVertexNoiseStrengthValueSpan, 3); this.rockVertexNoiseStrengthSlider.value = sm.rockVertexNoiseStrength;
+
                 // Initialize Cloud Controls UI
                 this.updateSliderValueDisplay(this.cloudLayerMinYSlider, this.cloudLayerMinYValue); this.cloudLayerMinYSlider.value = sm.cloudLayerMinY;
                 this.updateSliderValueDisplay(this.cloudLayerMaxYSlider, this.cloudLayerMaxYValue); this.cloudLayerMaxYSlider.value = sm.cloudLayerMaxY;
@@ -2873,6 +3795,15 @@ const bvhWorkerScript = `
                 this.sunnyDayButton.addEventListener('click', () => { sm.setSkyPreset(0); this.sunnyDayButton.classList.add('active'); this.duskButton.classList.remove('active'); });
                 this.duskButton.addEventListener('click', () => { sm.setSkyPreset(1); this.duskButton.classList.add('active'); this.sunnyDayButton.classList.remove('active'); });
 
+                // Rock Control Event Listeners
+                this.rockCountSlider.addEventListener('input', (e) => { const v = parseInt(e.target.value); this.updateSliderValueDisplay(this.rockCountSlider, this.rockCountValueSpan, 0); sm.setRockCount(v); });
+                this.rockSubdivisionsSlider.addEventListener('input', (e) => { const v = parseInt(e.target.value); this.updateSliderValueDisplay(this.rockSubdivisionsSlider, this.rockSubdivisionsValueSpan, 0); sm.setRockSubdivisions(v); });
+                this.rockNumScrapesSlider.addEventListener('input', (e) => { const v = parseInt(e.target.value); this.updateSliderValueDisplay(this.rockNumScrapesSlider, this.rockNumScrapesValueSpan, 0); sm.setRockNumScrapes(v); });
+                this.rockScrapeStrengthSlider.addEventListener('input', (e) => { const v = parseFloat(e.target.value); this.updateSliderValueDisplay(this.rockScrapeStrengthSlider, this.rockScrapeStrengthValueSpan, 2); sm.setRockScrapeStrength(v); });
+                this.rockScrapeRadiusMinSlider.addEventListener('input', (e) => { const v = parseFloat(e.target.value); this.updateSliderValueDisplay(this.rockScrapeRadiusMinSlider, this.rockScrapeRadiusMinValueSpan, 2); sm.setRockScrapeRadiusMin(v); });
+                this.rockScrapeRadiusMaxSlider.addEventListener('input', (e) => { const v = parseFloat(e.target.value); this.updateSliderValueDisplay(this.rockScrapeRadiusMaxSlider, this.rockScrapeRadiusMaxValueSpan, 2); sm.setRockScrapeRadiusMax(v); });
+                this.rockVertexNoiseStrengthSlider.addEventListener('input', (e) => { const v = parseFloat(e.target.value); this.updateSliderValueDisplay(this.rockVertexNoiseStrengthSlider, this.rockVertexNoiseStrengthValueSpan, 3); sm.setRockVertexNoiseStrength(v); });
+
                 // Cloud Control Event Listeners
                 this.cloudLayerMinYSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudLayerMinYSlider, this.cloudLayerMinYValue); sm.setCloudLayerMinY(e.target.value); });
                 this.cloudLayerMaxYSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudLayerMaxYSlider, this.cloudLayerMaxYValue); sm.setCloudLayerMaxY(e.target.value); });
@@ -2947,6 +3878,405 @@ const bvhWorkerScript = `
             }
         }
         // --- End UIManager Definition ---
+
+        /**
+         * @class ProceduralMeshGenerator
+         * @description Generates procedural meshes like icospheres.
+         */
+        class ProceduralMeshGenerator {
+            // --- Static Vector Math Utilities ---
+            static vec3_create() {
+                return [0, 0, 0];
+            }
+
+            static vec3_dot(v1, v2) {
+                return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+            }
+
+            static vec3_subtract(out, v1, v2) {
+                out[0] = v1[0] - v2[0];
+                out[1] = v1[1] - v2[1];
+                out[2] = v1[2] - v2[2];
+                return out;
+            }
+
+            static vec3_add(out, v1, v2) { // Added for completeness, useful for projection
+                out[0] = v1[0] + v2[0];
+                out[1] = v1[1] + v2[1];
+                out[2] = v1[2] + v2[2];
+                return out;
+            }
+
+            static vec3_scale(out, v, s) { // Added for completeness, useful for projection
+                out[0] = v[0] * s;
+                out[1] = v[1] * s;
+                out[2] = v[2] * s;
+                return out;
+            }
+
+            static vec3_scaleAndAdd(out, v1, v2, scale) {
+                out[0] = v1[0] + v2[0] * scale;
+                out[1] = v1[1] + v2[1] * scale;
+                out[2] = v1[2] + v2[2] * scale;
+                return out;
+            }
+
+            static vec3_copy(out, v) {
+                out[0] = v[0];
+                out[1] = v[1];
+                out[2] = v[2];
+                return out;
+            }
+
+            static vec3_normalize(out, v) {
+                let len = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+                if (len > 0) {
+                    len = 1 / Math.sqrt(len);
+                    out[0] = v[0] * len;
+                    out[1] = v[1] * len;
+                    out[2] = v[2] * len;
+                } else {
+                    out[0] = 0;
+                    out[1] = 0;
+                    out[2] = 0;
+                }
+                return out;
+            }
+
+            static vec3_squaredDistance(v1, v2) {
+                const dx = v1[0] - v2[0];
+                const dy = v1[1] - v2[1];
+                const dz = v1[2] - v2[2];
+                return dx*dx + dy*dy + dz*dz;
+            }
+
+            constructor() {
+                console.log("ProceduralMeshGenerator initialized.");
+            }
+
+            /**
+             * Generates vertices and indices for an icosphere.
+             * @param {number} subdivisions - Number of times to subdivide the icosahedron.
+             * @returns {{positions: Float32Array, indices: Uint32Array}}
+             */
+            generateIcosphere(subdivisions = 0) {
+                const t = (1.0 + Math.sqrt(5.0)) / 2.0;
+
+                let vertices = [
+                    [-1,  t,  0], [ 1,  t,  0], [-1, -t,  0], [ 1, -t,  0],
+                    [ 0, -1,  t], [ 0,  1,  t], [ 0, -1, -t], [ 0,  1, -t],
+                    [ t,  0, -1], [ t,  0,  1], [-t,  0, -1], [-t,  0,  1]
+                ];
+
+                // Normalize initial vertices to unit sphere
+                vertices = vertices.map(v => {
+                    const length = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+                    return [v[0]/length, v[1]/length, v[2]/length];
+                });
+
+                let faces = [
+                    [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+                    [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+                    [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+                    [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
+                ];
+
+                const midpointCache = new Map();
+                const getMidpoint = (p1Idx, p2Idx) => {
+                    const sortedIndices = [Math.min(p1Idx, p2Idx), Math.max(p1Idx, p2Idx)];
+                    const cacheKey = `${sortedIndices[0]}-${sortedIndices[1]}`;
+
+                    if (midpointCache.has(cacheKey)) {
+                        return midpointCache.get(cacheKey);
+                    }
+
+                    const v1 = vertices[p1Idx];
+                    const v2 = vertices[p2Idx];
+                    const mid = [
+                        (v1[0] + v2[0]) / 2.0,
+                        (v1[1] + v2[1]) / 2.0,
+                        (v1[2] + v2[2]) / 2.0
+                    ];
+
+                    const length = Math.sqrt(mid[0]*mid[0] + mid[1]*mid[1] + mid[2]*mid[2]);
+                    const normalizedMid = [mid[0]/length, mid[1]/length, mid[2]/length];
+
+                    vertices.push(normalizedMid);
+                    const newIdx = vertices.length - 1;
+                    midpointCache.set(cacheKey, newIdx);
+                    return newIdx;
+                };
+
+                for (let i = 0; i < subdivisions; i++) {
+                    const newFaces = [];
+                    midpointCache.clear(); // Clear cache for each subdivision level if vertices array is rebuilt per level
+                                       // Or, if vertices array is appended globally, cache should persist.
+                                       // Current implementation appends globally, so cache should persist.
+
+                    for (const face of faces) {
+                        const v0 = face[0];
+                        const v1 = face[1];
+                        const v2 = face[2];
+
+                        const m01 = getMidpoint(v0, v1);
+                        const m12 = getMidpoint(v1, v2);
+                        const m20 = getMidpoint(v2, v0);
+
+                        newFaces.push([v0, m01, m20]);
+                        newFaces.push([v1, m12, m01]);
+                        newFaces.push([v2, m20, m12]);
+                        newFaces.push([m01, m12, m20]);
+                    }
+                    faces = newFaces;
+                }
+
+                const positions = new Float32Array(vertices.length * 3);
+                for (let i = 0; i < vertices.length; i++) {
+                    positions[i * 3 + 0] = vertices[i][0];
+                    positions[i * 3 + 1] = vertices[i][1];
+                    positions[i * 3 + 2] = vertices[i][2];
+                }
+
+                const indices = new Uint32Array(faces.length * 3);
+                for (let i = 0; i < faces.length; i++) {
+                    indices[i * 3 + 0] = faces[i][0];
+                    indices[i * 3 + 1] = faces[i][1];
+                    indices[i * 3 + 2] = faces[i][2];
+                }
+
+                return { positions, indices };
+            }
+
+            /**
+             * Calculates the adjacent vertices for each vertex in a mesh.
+             * @param {Float32Array} positions - Flat array of vertex positions.
+             * @param {Uint32Array} indices - Flat array of triangle indices.
+             * @returns {Array<Array<number>>} An array where each element is an array of neighboring vertex indices.
+             */
+            getNeighbours(positions, indices) {
+                const numVertices = positions.length / 3;
+                const adjacencySets = Array.from({ length: numVertices }, () => new Set());
+
+                for (let i = 0; i < indices.length; i += 3) {
+                    const v0 = indices[i];
+                    const v1 = indices[i + 1];
+                    const v2 = indices[i + 2];
+
+                    adjacencySets[v0].add(v1);
+                    adjacencySets[v0].add(v2);
+
+                    adjacencySets[v1].add(v0);
+                    adjacencySets[v1].add(v2);
+
+                    adjacencySets[v2].add(v0);
+                    adjacencySets[v2].add(v1);
+                }
+
+                const adjacentVertices = Array.from({ length: numVertices }, () => []);
+                for (let i = 0; i < numVertices; i++) {
+                    adjacentVertices[i] = Array.from(adjacencySets[i]);
+                }
+                return adjacentVertices;
+            }
+
+            /**
+             * Projects a point onto a plane.
+             * @static
+             * @param {number[]} planeNormal - The normal vector of the plane (3-element array).
+             * @param {number[]} pointOnPlane - A point lying on the plane (3-element array).
+             * @param {number[]} pointToProject - The point to project onto the plane (3-element array).
+             * @returns {number[]} The projected point (3-element array).
+             */
+            static project(planeNormal, pointOnPlane, pointToProject) {
+                const PM = ProceduralMeshGenerator; // Alias for static methods
+
+                const tempVec = PM.vec3_create();
+                PM.vec3_subtract(tempVec, pointOnPlane, pointToProject); // tempVec = pointOnPlane - pointToProject
+
+                const numerator = PM.vec3_dot(planeNormal, tempVec);
+                const denominator = PM.vec3_dot(planeNormal, planeNormal);
+
+                if (denominator === 0) { // Avoid division by zero if planeNormal is a zero vector
+                    console.warn("ProceduralMeshGenerator.project: planeNormal is a zero vector.");
+                    return PM.vec3_copy(PM.vec3_create(), pointToProject); // Or return pointToProject, or handle error
+                }
+
+                const t = numerator / denominator;
+
+                const scaledNormal = PM.vec3_create();
+                PM.vec3_scale(scaledNormal, planeNormal, t); // scaledNormal = t * planeNormal
+
+                const projectedPoint = PM.vec3_create();
+                PM.vec3_add(projectedPoint, pointToProject, scaledNormal); // projectedPoint = pointToProject + scaledNormal
+
+                return projectedPoint;
+            }
+
+            /**
+             * Modifies vertex positions and normals by "scraping" a planar area.
+             * @param {Float32Array} vertexPositions - Flat array of vertex coordinates (modified in place).
+             * @param {Float32Array} vertexNormals - Flat array of vertex normals (modified in place).
+             * @param {Array<Array<number>>} precomputedNeighbours - Adjacency list for vertices.
+             * @param {number} centerVertexIndex - Index of the vertex to start the scrape from.
+             * @param {number} scrapeStrength - How much to displace the scraping plane.
+             * @param {number} scrapeRadius - Radius of effect for the scrape.
+             */
+            scrape(vertexPositions, vertexNormals, precomputedNeighbours, centerVertexIndex, scrapeStrength, scrapeRadius) {
+                const PM = ProceduralMeshGenerator; // Alias for static methods
+                const numVertices = vertexPositions.length / 3;
+
+                const centerPosition = PM.vec3_create();
+                centerPosition[0] = vertexPositions[centerVertexIndex * 3];
+                centerPosition[1] = vertexPositions[centerVertexIndex * 3 + 1];
+                centerPosition[2] = vertexPositions[centerVertexIndex * 3 + 2];
+
+                const planeNormal = PM.vec3_create(); // Normal of the scraping plane
+                planeNormal[0] = vertexNormals[centerVertexIndex * 3];
+                planeNormal[1] = vertexNormals[centerVertexIndex * 3 + 1];
+                planeNormal[2] = vertexNormals[centerVertexIndex * 3 + 2];
+                PM.vec3_normalize(planeNormal, planeNormal);
+
+
+                const r0 = PM.vec3_create(); // A point on the displaced plane
+                const scaledNormalOffset = PM.vec3_create();
+                PM.vec3_scale(scaledNormalOffset, planeNormal, -scrapeStrength); // -planeNormal * scrapeStrength
+                PM.vec3_add(r0, centerPosition, scaledNormalOffset); // r0 = centerPosition - planeNormal * scrapeStrength
+
+                const scrapeRadiusSq = scrapeRadius * scrapeRadius;
+                const traversed = new Array(numVertices).fill(false);
+                const stack = [centerVertexIndex];
+
+                let currentPosition = PM.vec3_create();
+                let projectedP = PM.vec3_create();
+
+                while (stack.length > 0) {
+                    const currentIndex = stack.pop();
+
+                    if (traversed[currentIndex]) {
+                        continue;
+                    }
+                    traversed[currentIndex] = true;
+
+                    currentPosition[0] = vertexPositions[currentIndex * 3];
+                    currentPosition[1] = vertexPositions[currentIndex * 3 + 1];
+                    currentPosition[2] = vertexPositions[currentIndex * 3 + 2];
+
+                    PM.project(planeNormal, r0, currentPosition, projectedP); // project currentPosition onto the plane r0, n
+
+                    if (PM.vec3_squaredDistance(projectedP, r0) < scrapeRadiusSq) {
+                        vertexPositions[currentIndex * 3]     = projectedP[0];
+                        vertexPositions[currentIndex * 3 + 1] = projectedP[1];
+                        vertexPositions[currentIndex * 3 + 2] = projectedP[2];
+
+                        // Update normals to align with the scrape plane normal in the affected area
+                        vertexNormals[currentIndex * 3]     = planeNormal[0];
+                        vertexNormals[currentIndex * 3 + 1] = planeNormal[1];
+                        vertexNormals[currentIndex * 3 + 2] = planeNormal[2];
+
+                        const neighbours = precomputedNeighbours[currentIndex];
+                        if (neighbours) {
+                            for (const neighbourIndex of neighbours) {
+                                if (!traversed[neighbourIndex]) {
+                                    stack.push(neighbourIndex);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            /**
+             * Displaces vertices along their normals by a random amount.
+             * @param {Float32Array} vertexPositions - Flat array of vertex coordinates (modified in place).
+             * @param {Float32Array} vertexNormals - Flat array of vertex normals.
+             * @param {number} noiseStrength - Multiplier for the displacement.
+             */
+            displaceVerticesWithNoise(vertexPositions, vertexNormals, noiseStrength) {
+                const numVertices = vertexPositions.length / 3;
+                let normal = ProceduralMeshGenerator.vec3_create();
+
+                for (let i = 0; i < numVertices; i++) {
+                    normal[0] = vertexNormals[i * 3];
+                    normal[1] = vertexNormals[i * 3 + 1];
+                    normal[2] = vertexNormals[i * 3 + 2];
+                    // No need to normalize here if input normals are already unit vectors.
+
+                    let randomNoiseValue = (Math.random() - 0.5) * 2.0; // [-1, 1]
+
+                    vertexPositions[i * 3 + 0] += normal[0] * randomNoiseValue * noiseStrength;
+                    vertexPositions[i * 3 + 1] += normal[1] * randomNoiseValue * noiseStrength;
+                    vertexPositions[i * 3 + 2] += normal[2] * randomNoiseValue * noiseStrength;
+                }
+            }
+
+            /**
+             * Generates a rock-like procedural mesh.
+             * @param {object} config - Configuration object.
+             * @param {number} [config.subdivisions=0] - Icosphere subdivisions.
+             * @param {number} [config.numScrapes=10] - Number of scrape operations.
+             * @param {number} [config.scrapeStrength=0.1] - Base strength of scrapes.
+             * @param {number} [config.scrapeRadiusMin=0.4] - Minimum radius for scrapes.
+             * @param {number} [config.scrapeRadiusMax=0.8] - Maximum radius for scrapes.
+             * @param {number} [config.noiseStrength=0.05] - Strength of final noise displacement.
+             * @returns {{positions: Float32Array, indices: Uint32Array, normals: Float32Array}}
+             */
+            generateRock(config = {}) {
+                const subdivisions = config.subdivisions === undefined ? 1 : config.subdivisions; // Default to 1 for a more rock-like base
+                const numScrapes = config.numScrapes === undefined ? 10 : config.numScrapes;
+                const scrapeStrengthBase = config.scrapeStrength === undefined ? 0.1 : config.scrapeStrength;
+                const scrapeRadiusMin = config.scrapeRadiusMin === undefined ? 0.3 : config.scrapeRadiusMin;
+                const scrapeRadiusMax = config.scrapeRadiusMax === undefined ? 0.7 : config.scrapeRadiusMax;
+                const noiseStrength = config.noiseStrength === undefined ? 0.02 : config.noiseStrength;
+
+                const icosphereData = this.generateIcosphere(subdivisions);
+
+                // Make copies to work on, as generateIcosphere returns fresh arrays
+                // but scrape and displaceVerticesWithNoise modify in-place.
+                const vertexPositions = new Float32Array(icosphereData.positions);
+                const vertexNormals = new Float32Array(icosphereData.positions.length); // Initialize with same size
+
+                // Initialize normals (for a sphere, normal is same as position if centered at origin and unit radius)
+                // And then normalize them, as scraping might alter positions making them non-unit.
+                for (let i = 0; i < vertexPositions.length / 3; i++) {
+                    const px = vertexPositions[i*3];
+                    const py = vertexPositions[i*3+1];
+                    const pz = vertexPositions[i*3+2];
+                    const len = Math.sqrt(px*px + py*py + pz*pz);
+                    if (len > 0) {
+                        vertexNormals[i*3]   = px/len;
+                        vertexNormals[i*3+1] = py/len;
+                        vertexNormals[i*3+2] = pz/len;
+                    } else { // Should not happen for icosphere from generateIcosphere
+                        vertexNormals[i*3]   = 0;
+                        vertexNormals[i*3+1] = 1;
+                        vertexNormals[i*3+2] = 0;
+                    }
+                }
+
+                const adjacentVertices = this.getNeighbours(vertexPositions, icosphereData.indices);
+                const numVertices = vertexPositions.length / 3;
+
+                for (let i = 0; i < numScrapes; i++) {
+                    const centerVertexIndex = Math.floor(Math.random() * numVertices);
+                    const currentScrapeRadius = scrapeRadiusMin + Math.random() * (scrapeRadiusMax - scrapeRadiusMin);
+                    const currentScrapeStrength = scrapeStrengthBase + (Math.random() - 0.5) * (scrapeStrengthBase * 0.5); // +/- 25% of base
+
+                    this.scrape(vertexPositions, vertexNormals, adjacentVertices, centerVertexIndex, currentScrapeStrength, currentScrapeRadius);
+                }
+
+                if (noiseStrength > 0) {
+                    this.displaceVerticesWithNoise(vertexPositions, vertexNormals, noiseStrength);
+                }
+
+                // Recalculate normals after all deformations (optional, but good for final shading)
+                // For simplicity, this step is omitted here but would typically involve averaging face normals.
+                // The scrape operation already updates normals in the scraped area to the plane normal.
+                // The noise displacement slightly moves vertices off these scraped planes.
+
+                return { positions: vertexPositions, indices: icosphereData.indices, normals: vertexNormals };
+            }
+        }
+        // --- End ProceduralMeshGenerator Definition ---
 
         // Global instance of the engine
         const NovaRayEngine = window.NovaRayEngine;
