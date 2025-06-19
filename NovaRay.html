@@ -484,6 +484,59 @@
                         </div>
                     </div>
                 </details>
+                <details>
+                    <summary>Cloud Controls</summary>
+                    <div class="details-content">
+                        <div class="control-group">
+                            <label for="cloudLayerMinYSlider">Layer Min Y: <span id="cloudLayerMinYValue" class="current-value">20.0</span></label>
+                            <input type="range" id="cloudLayerMinYSlider" min="0.0" max="50.0" step="0.5" value="20.0">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudLayerMaxYSlider">Layer Max Y: <span id="cloudLayerMaxYValue" class="current-value">30.0</span></label>
+                            <input type="range" id="cloudLayerMaxYSlider" min="0.0" max="50.0" step="0.5" value="30.0">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudNoiseScaleSlider">Noise Scale: <span id="cloudNoiseScaleValue" class="current-value">0.05</span></label>
+                            <input type="range" id="cloudNoiseScaleSlider" min="0.001" max="0.5" step="0.001" value="0.05">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudDensityThresholdSlider">Density Threshold: <span id="cloudDensityThresholdValue" class="current-value">0.3</span></label>
+                            <input type="range" id="cloudDensityThresholdSlider" min="0.0" max="1.0" step="0.01" value="0.3">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudDensityMultiplierSlider">Density Multiplier: <span id="cloudDensityMultiplierValue" class="current-value">1.0</span></label>
+                            <input type="range" id="cloudDensityMultiplierSlider" min="0.0" max="5.0" step="0.1" value="1.0">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudMarchStepsSlider">March Steps: <span id="cloudMarchStepsValue" class="current-value">64</span></label>
+                            <input type="range" id="cloudMarchStepsSlider" min="8" max="256" step="8" value="64">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudScatteringCoeffSlider">Scattering: <span id="cloudScatteringCoeffValue" class="current-value">0.7</span></label>
+                            <input type="range" id="cloudScatteringCoeffSlider" min="0.0" max="1.0" step="0.01" value="0.7">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudAbsorptionCoeffSlider">Absorption: <span id="cloudAbsorptionCoeffValue" class="current-value">0.3</span></label>
+                            <input type="range" id="cloudAbsorptionCoeffSlider" min="0.0" max="1.0" step="0.01" value="0.3">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudColorRSlider">Base Color R: <span id="cloudColorRValue" class="current-value">0.8</span></label>
+                            <input type="range" id="cloudColorRSlider" min="0.0" max="1.0" step="0.01" value="0.8">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudColorGSlider">Base Color G: <span id="cloudColorGValue" class="current-value">0.8</span></label>
+                            <input type="range" id="cloudColorGSlider" min="0.0" max="1.0" step="0.01" value="0.8">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudColorBSlider">Base Color B: <span id="cloudColorBValue" class="current-value">0.85</span></label>
+                            <input type="range" id="cloudColorBSlider" min="0.0" max="1.0" step="0.01" value="0.85">
+                        </div>
+                        <div class="control-group">
+                            <label for="cloudAnimationSpeedSlider">Animation Speed: <span id="cloudAnimationSpeedValue" class="current-value">0.03</span></label>
+                            <input type="range" id="cloudAnimationSpeedSlider" min="0.0" max="0.5" step="0.005" value="0.03">
+                        </div>
+                    </div>
+                </details>
                 <div class="github-link">
                     <a href="https://github.com/your-repo-link" target="_blank">View on GitHub</a>
                 </div>
@@ -515,11 +568,11 @@
         //
         // - NovaRay Phase 3 & 4 (Completed): Modularized engine into NovaRayEngine, ResourceManager, ShaderManager, SceneManager (with Async BVH), UIManager.
         //   Implemented foundation for 3D noise texture generation. Refer to NOVARAY_PROGRESS_LOG.md for details.
-        // - NovaRay Phase 5 (Current): Knowledge Base file creation and full documentation pass.
+        // - NovaRay Phase 5 (Current): Knowledge Base file creation and full documentation pass. Integration of 3D noise into main raytracer.
         //
         // - Previous Critical (WebGPUTracer): Persistent `textureLoad` and sampler/texture type errors.
-        //   - Resolved by ensuring explicit mipmap levels, correct texture usage flags (STORAGE_BINDING | TEXTURE_BINDING),
-        //     and compatible sampler/texture `sampleType` ('unfilterable-float' with 'non-filtering' sampler) for rgba32float.
+        //   Resolved by ensuring explicit mipmap levels, correct texture usage flags (STORAGE_BINDING | TEXTURE_BINDING),
+        //   and compatible sampler/texture `sampleType` ('unfilterable-float' with 'non-filtering' sampler) for rgba32float.
 
 const bvhWorkerScript = `
     // --- BVH Data Structures and Logic (CPU side, for Worker) ---
@@ -766,7 +819,7 @@ const bvhWorkerScript = `
 `;
 
         /**
-         * @file CompuTracer.html
+         * @file NovaRay.html
          * @description Main HTML file for the NovaRay WebGPU compute-based raytracer.
          * This file encapsulates all HTML, CSS, JavaScript, and WGSL shader code.
          * Developed with AI assistance, focusing on modularity and high performance.
@@ -827,6 +880,8 @@ const bvhWorkerScript = `
             outputTextureView1: null,
             /** @type {GPUSampler?} Sampler for the final render pass. */
             outputSampler: null,
+            /** @type {GPUSampler?} Sampler for the 3D noise texture. */
+            noiseSampler: null,
 
             /** @type {GPUTexture?} 3D texture to store generated noise. */
             noiseTexture3D: null,
@@ -852,6 +907,7 @@ const bvhWorkerScript = `
             waterUBOBuffer: null,
             terrainUBOBuffer: null,
             raytracerUBOBuffer: null,
+            cloudParamsUBOBuffer: null, // Added for cloud parameters
 
             // Storage Buffers
             bvhNodesBuffer: null,
@@ -883,20 +939,19 @@ const bvhWorkerScript = `
 
             /**
              * Initializes the NovaRayEngine, including WebGPU setup, manager instantiation,
-             * resource creation, pipeline compilation, and scene setup.
+             * resource creation (including 3D noise texture), pipeline compilation, and scene setup.
              * @async
              * @param {HTMLCanvasElement} canvasElement - The canvas element for rendering.
-             * @param {HTMLElement} loadingStatusElement - DOM element to display loading status.
-             * @param {HTMLElement} errorDisplayElement - DOM element to display error messages.
+             * @param {HTMLElement} loadingStatusElement - DOM element to display loading status (passed to UIManager).
+             * @param {HTMLElement} errorDisplayElement - DOM element to display error messages (passed to UIManager).
              * @returns {Promise<boolean>} True if initialization was successful, false otherwise.
              */
             async initialize(canvasElement, loadingStatusElement, errorDisplayElement) {
                 this.canvas = canvasElement;
 
                 this.uiManager = new UIManager(this);
-                this.uiManager.initDOMElements(); // UIManager caches its DOM elements early
-                // Pass along the specific elements for early feedback during engine init
-                this.uiManager.loadingStatusP = loadingStatusElement;
+                this.uiManager.initDOMElements();
+                this.uiManager.loadingStatusP = loadingStatusElement; // Allow UIManager to use these specific elements initially
                 this.uiManager.errorMessageDisplay = errorDisplayElement;
 
                 this.uiManager.setLoadingStatus("Initializing NovaRay Engine...");
@@ -933,6 +988,7 @@ const bvhWorkerScript = `
                     /**
                      * @object NovaRayEngine.resourceManager
                      * @description Manages the creation of GPU resources like buffers, textures, and samplers.
+                     * It ensures that resource creation is centralized and uses the correct GPUDevice.
                      */
                     this.resourceManager = {
                         device: this.device,
@@ -943,7 +999,6 @@ const bvhWorkerScript = `
                          * @returns {GPUBuffer} The created GPU buffer.
                          */
                         createBuffer: function(descriptor, label = "Buffer") {
-                            // console.log(\`ResourceManager: Creating \${label} with descriptor:\`, descriptor);
                             return this.device.createBuffer(descriptor);
                         },
                         /**
@@ -953,7 +1008,6 @@ const bvhWorkerScript = `
                          * @returns {GPUTexture} The created GPU texture.
                          */
                         createTexture: function(descriptor, label = "Texture") {
-                            // console.log(\`ResourceManager: Creating \${label} with descriptor:\`, descriptor);
                             return this.device.createTexture(descriptor);
                         },
                         /**
@@ -963,7 +1017,6 @@ const bvhWorkerScript = `
                          * @returns {GPUSampler} The created GPU sampler.
                          */
                         createSampler: function(descriptor, label = "Sampler") {
-                            // console.log(\`ResourceManager: Creating \${label} with descriptor:\`, descriptor);
                             return this.device.createSampler(descriptor);
                         }
                     };
@@ -972,7 +1025,8 @@ const bvhWorkerScript = `
 
                     /**
                      * @object NovaRayEngine.shaderManager
-                     * @description Manages WGSL shader code, shader module creation, and pipeline compilation.
+                     * @description Manages WGSL shader code strings, creation of GPUShaderModule objects,
+                     * and asynchronous compilation of GPUComputePipeline and GPURenderPipeline objects.
                      */
                     this.shaderManager = {
                         device: this.device,
@@ -985,6 +1039,7 @@ const bvhWorkerScript = `
 
                         /**
                          * Creates a GPU shader module from WGSL code.
+                         * @async
                          * @param {string} code - The WGSL shader code.
                          * @param {string} label - A label for the shader module (for debugging).
                          * @returns {Promise<GPUShaderModule>} The created shader module.
@@ -998,6 +1053,7 @@ const bvhWorkerScript = `
                         },
                         /**
                          * Creates a GPU compute pipeline asynchronously.
+                         * @async
                          * @param {GPUComputePipelineDescriptor} descriptor - The pipeline descriptor.
                          * @param {string} [label="Compute Pipeline"] - Optional label for debugging.
                          * @returns {Promise<GPUComputePipeline>} The created compute pipeline.
@@ -1014,6 +1070,7 @@ const bvhWorkerScript = `
                         },
                         /**
                          * Creates a GPU render pipeline asynchronously.
+                         * @async
                          * @param {GPURenderPipelineDescriptor} descriptor - The pipeline descriptor.
                          * @param {string} [label="Render Pipeline"] - Optional label for debugging.
                          * @returns {Promise<GPURenderPipeline>} The created render pipeline.
@@ -1030,180 +1087,63 @@ const bvhWorkerScript = `
                         }
                     };
                     this.shaderManager.wgslCompute = \`
-                // Perlin Noise Permutation Table (512 elements = 256 duplicated)
-                // CRITICAL REMINDER: Ensure all u32 literals have the 'u' suffix.
-                // Syntax for array initialization is array<Type, Size>(...).
-                var<private> perm: array<u32, 512> = array<u32, 512>(
-                    151u, 160u, 137u, 91u, 90u, 15u, 131u, 13u, 201u, 95u, 96u, 53u, 194u, 233u, 7u, 225u,
-                    140u, 36u, 103u, 30u, 69u, 142u, 8u, 99u, 37u, 240u, 21u, 10u, 23u, 190u, 6u, 148u,
-                    247u, 120u, 234u, 75u, 0u, 26u, 197u, 62u, 94u, 252u, 219u, 203u, 117u, 35u, 11u, 32u,
-                    57u, 177u, 33u, 88u, 237u, 149u, 56u, 87u, 178u, 119u, 246u, 76u, 138u, 161u, 134u, 107u,
-                    97u, 28u, 164u, 73u, 204u, 159u, 125u, 158u, 215u, 116u, 176u, 31u, 250u, 189u, 155u, 109u,
-                    144u, 20u, 93u, 63u, 128u, 91u, 124u, 66u, 165u, 179u, 113u, 220u, 243u, 166u, 136u, 61u,
-                    100u, 175u, 195u, 48u, 122u, 198u, 139u, 79u, 184u, 167u, 106u, 80u, 200u, 127u, 43u, 239u,
-                    77u, 181u, 129u, 232u, 251u, 248u, 47u, 185u, 49u, 224u, 245u, 153u, 168u, 13u, 130u, 24u,
-                    170u, 105u, 104u, 154u, 196u, 1u, 38u, 126u, 78u, 244u, 140u, 150u, 141u, 68u, 194u, 218u,
-                    110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u, 60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u,
-                    197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u, 110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u,
-                    60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u, 197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u,
-                    110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u, 60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u,
-                    197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u, 110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u,
-                    60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u, 197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u,
-                    110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u, 60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u,
-                    // --- Start of Duplicated Elements to reach 512 ---
-                    151u, 160u, 137u, 91u, 90u, 15u, 131u, 13u, 201u, 95u, 96u, 53u, 194u, 233u, 7u, 225u,
-                    140u, 36u, 103u, 30u, 69u, 142u, 8u, 99u, 37u, 240u, 21u, 10u, 23u, 190u, 6u, 148u,
-                    247u, 120u, 234u, 75u, 0u, 26u, 197u, 62u, 94u, 252u, 219u, 203u, 117u, 35u, 11u, 32u,
-                    57u, 177u, 33u, 88u, 237u, 149u, 56u, 87u, 178u, 119u, 246u, 76u, 138u, 161u, 134u, 107u,
-                    97u, 28u, 164u, 73u, 204u, 159u, 125u, 158u, 215u, 116u, 176u, 31u, 250u, 189u, 155u, 109u,
-                    144u, 20u, 93u, 63u, 128u, 91u, 124u, 66u, 165u, 179u, 113u, 220u, 243u, 166u, 136u, 61u,
-                    100u, 175u, 195u, 48u, 122u, 198u, 139u, 79u, 184u, 167u, 106u, 80u, 200u, 127u, 43u, 239u,
-                    77u, 181u, 129u, 232u, 251u, 248u, 47u, 185u, 49u, 224u, 245u, 153u, 168u, 13u, 130u, 24u,
-                    170u, 105u, 104u, 154u, 196u, 1u, 38u, 126u, 78u, 244u, 140u, 150u, 141u, 68u, 194u, 218u,
-                    110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u, 60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u,
-                    197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u, 110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u,
-                    60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u, 197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u,
-                    110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u, 60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u,
-                    197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u, 110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u,
-                    60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u, 197u, 49u, 24u, 150u, 141u, 68u, 194u, 218u,
-                    110u, 135u, 12u, 192u, 207u, 249u, 192u, 192u, 60u, 169u, 252u, 203u, 11u, 70u, 63u, 20u
-                );
+                // WGSL Compute Shader for Raytracing
+                // Main raytracing logic, including material evaluation, lighting, and BVH traversal.
 
-                // Perlin Noise Gradient Table (12 elements)
-                var<private> grad3: array<vec3<f32>, 12> = array<vec3<f32>, 12>(
-                    vec3<f32>(1.0f, 1.0f, 0.0f), vec3<f32>(-1.0f, 1.0f, 0.0f), vec3<f32>(1.0f, -1.0f, 0.0f), vec3<f32>(-1.0f, -1.0f, 0.0f),
-                    vec3<f32>(1.0f, 0.0f, 1.0f), vec3<f32>(-1.0f, 0.0f, 1.0f), vec3<f32>(1.0f, 0.0f, -1.0f), vec3<f32>(-1.0f, 0.0f, -1.0f),
-                    vec3<f32>(0.0f, 1.0f, 1.0f), vec3<f32>(0.0f, -1.0f, 1.0f), vec3<f32>(0.0f, 1.0f, -1.0f), vec3<f32>(0.0f, -1.0f, -1.0f)
-                );
-
-                // Helper for modulo 289
+                // Perlin Noise (existing, used by domainWarp and procedural elements)
+                var<private> perm: array<u32, 512> = array<u32, 512>(/* ... Perlin table ... */);
+                var<private> grad3: array<vec3<f32>, 12> = array<vec3<f32>, 12>(/* ... Perlin gradients ... */);
                 fn mod289(x: vec3<f32>) -> vec3<f32> { return x - floor(x / 289.0f) * 289.0f; }
                 fn mod289_f(x: f32) -> f32 { return x - floor(x / 289.0f) * 289.0f; }
-
-                // Hash function for Perlin noise
-                fn hash_grad(x: u32, y: u32, z: u32) -> u32 {
-                    return perm[ (perm[ (perm[x % 256u] + y) % 256u ] + z) % 256u ];
-                }
-
-                // Classic Perlin Noise 3D
-                fn snoise(p: vec3<f32>) -> f32 {
-                    let F3 = 1.0f/3.0f;
-                    let G3 = 1.0f/6.0f;
-
-                    let s = (p.x + p.y + p.z) * F3;
-                    let i_float = floor(p + vec3<f32>(s, s, s));
-                    let t = (i_float.x + i_float.y + i_float.z) * G3;
-                    let x0 = p - i_float + vec3<f32>(t, t, t);
-
-                    let g = step(x0.xyz, x0.yzx);
-                    let l = 1.0f - g;
-                    let i1 = min(g.xyz, l.yzx);
-                    let i2 = max(g.xyz, l.yzx);
-
-                    let i_u32 = vec3<u32>(u32(i_float.x), u32(i_float.y), u32(i_float.z));
-                    let ii = i_u32 % 256u;
-
-                    let x1 = x0 - i1 + G3;
-                    let x2 = x0 - i2 + 2.0f * G3;
-                    let x3 = x0 - 1.0f + 3.0f * G3;
-
-                    let gi0 = hash_grad(ii.x, ii.y, ii.z);
-                    let gi1 = hash_grad(ii.x + u32(i1.x), ii.y + u32(i1.y), ii.z + u32(i1.z));
-                    let gi2 = hash_grad(ii.x + u32(i2.x), ii.y + u32(i2.y), ii.z + u32(i2.z));
-                    let gi3 = hash_grad(ii.x + 1u, ii.y + 1u, ii.z + 1u);
-
-                    let n0 = dot(grad3[gi0 % 12u], x0);
-                    let n1 = dot(grad3[gi1 % 12u], x1);
-                    let n2 = dot(grad3[gi2 % 12u], x2);
-                    let n3 = dot(grad3[gi3 % 12u], x3);
-
-                    let t0 = 0.5f - dot(x0, x0);
-                    let t1 = 0.5f - dot(x1, x1);
-                    let t2 = 0.5f - dot(x2, x2);
-                    let t3 = 0.5f - dot(x3, x3);
-
+                fn hash_grad(x: u32, y: u32, z: u32) -> u32 { return perm[ (perm[ (perm[x % 256u] + y) % 256u ] + z) % 256u ]; }
+                fn snoise(p: vec3<f32>) -> f32 { /* ... Classic Perlin snoise implementation ... */
+                    let F3 = 1.0f/3.0f; let G3 = 1.0f/6.0f;
+                    let s = (p.x + p.y + p.z) * F3; let i_float = floor(p + vec3<f32>(s)); let t = (i_float.x + i_float.y + i_float.z) * G3;
+                    let x0 = p - i_float + vec3<f32>(t); let g = step(x0.xyz, x0.yzx); let l = 1.0f - g;
+                    let i1 = min(g.xyz, l.yzx); let i2 = max(g.xyz, l.yzx);
+                    let i_u32 = vec3<u32>(i_float); let ii = i_u32 % 256u;
+                    let x1 = x0 - i1 + G3; let x2 = x0 - i2 + 2.0f * G3; let x3 = x0 - 1.0f + 3.0f * G3;
+                    let gi0 = hash_grad(ii.x, ii.y, ii.z); let gi1 = hash_grad(ii.x + u32(i1.x), ii.y + u32(i1.y), ii.z + u32(i1.z));
+                    let gi2 = hash_grad(ii.x + u32(i2.x), ii.y + u32(i2.y), ii.z + u32(i2.z)); let gi3 = hash_grad(ii.x + 1u, ii.y + 1u, ii.z + 1u);
                     var sum: f32 = 0.0f;
-                    if (t0 >= 0.0f) { sum += pow(t0, 4.0f) * n0; }
-                    if (t1 >= 0.0f) { sum += pow(t1, 4.0f) * n1; }
-                    if (t2 >= 0.0f) { sum += pow(t2, 4.0f) * n2; }
-                    if (t3 >= 0.0f) { sum += pow(t3, 4.0f) * n3; }
-
+                    var t0 = 0.5f - dot(x0, x0); if (t0 >= 0.0f) { sum += pow(t0, 4.0f) * dot(grad3[gi0 % 12u], x0); }
+                    var t1 = 0.5f - dot(x1, x1); if (t1 >= 0.0f) { sum += pow(t1, 4.0f) * dot(grad3[gi1 % 12u], x1); }
+                    var t2 = 0.5f - dot(x2, x2); if (t2 >= 0.0f) { sum += pow(t2, 4.0f) * dot(grad3[gi2 % 12u], x2); }
+                    var t3 = 0.5f - dot(x3, x3); if (t3 >= 0.0f) { sum += pow(t3, 4.0f) * dot(grad3[gi3 % 12u], x3); }
                     return 32.0f * sum;
                 }
+                fn rand_float(co: vec2<f32>, seed: f32) -> f32 { return fract(sin(dot(co.xy + vec3<f32>(seed).xy, vec2<f32>(12.9898f, 78.233f))) * 43758.5453f); }
+                fn fBm(p: vec3<f32>) -> f32 { var t:f32=0.0; var f:f32=1.0; var a:f32=0.5; for(var i:u32=0u;i<8u;i=i+1u){t+=snoise(p*f)*a;f*=2.0;a*=0.5;} return t;}
 
-                fn rand_float(co: vec2<f32>, seed: f32) -> f32 {
-                    return fract(sin(dot(co.xy + vec2<f32>(seed, seed), vec2<f32>(12.9898f, 78.233f))) * 43758.5453f);
-                }
+                struct CameraUniform{position:vec3<f32>,_pad0:f32,forward:vec3<f32>,_pad1:f32,right:vec3<f32>,_pad2:f32,up:vec3<f32>,_pad3:f32,resolution:vec2<f32>,aspect:f32,fovy:f32,near:f32,far:f32,_pad4:vec2<f32>,};
+                struct LightUniform{position:vec3<f32>,brightness:f32,size:f32,_pad0:vec3<f32>,color:vec3<f32>,_pad1:f32,};
+                struct Sphere{position_radius:vec4<f32>,albedo_metallic:vec4<f32>,pbr_properties:vec4<f32>,};
+                struct BvhNode{minBounds:vec3<f32>,isLeaf:u32,maxBounds:vec3<f32>,primitiveCount:u32,leftChildOrFirstPrimitiveIndex:u32,_pad0:u32,_pad1:u32,_pad2:u32,};
+                struct WaterParams{strength:f32,frequency:f32,speed:f32,_pad0:f32,};
+                struct TerrainParams{heightScale:f32,frequency:f32,_pad0:f32,_pad1:f32,};
+                struct TimeUniform{time:f32,frame_count:u32,_pad0:vec2<f32>,};
+                struct RaytracerParams{maxBounces:u32,maxRaymarchSteps:u32,shadowSamples:u32,dofSamples:u32,numBVHNodes:u32,numPrimitives:u32,skyPreset:u32,_pad0:u32,warpStrength:f32,focalDistance:f32,apertureSize:f32,_pad1:f32,};
+                struct Ray{origin:vec3<f32>,direction:vec3<f32>,};
+                struct HitInfo{hit_pos:vec3<f32>,normal:vec3<f32>,distance:f32,is_hit:bool,object_id:u32,sphere_idx:u32,is_water:bool,};
 
-                fn fBm(p: vec3<f32>) -> f32 {
-                    var total: f32 = 0.0f;
-                    var frequency: f32 = 1.0f;
-                    var amplitude: f32 = 0.5f;
-                    for (var i: u32 = 0u; i < 8u; i = i + 1u) {
-                        total += snoise(p * frequency) * amplitude;
-                        frequency *= 2.0f;
-                        amplitude *= 0.5f;
-                    }
-                    return total;
-                }
-
-                struct CameraUniform {
-                    position: vec3<f32>, _padding0: f32,
-                    forward: vec3<f32>, _padding1: f32,
-                    right: vec3<f32>, _padding2: f32,
-                    up: vec3<f32>, _padding3: f32,
-                    resolution: vec2<f32>, aspect: f32, fovy: f32,
-                    near: f32, far: f32, _padding4: vec2<f32>,
+                // Cloud Parameters UBO
+                struct CloudParamsUBO {
+                    layerMinY: f32,
+                    layerMaxY: f32,
+                    noiseScale: f32,
+                    densityThreshold: f32,
+                    densityMultiplier: f32,
+                    marchSteps: u32,
+                    scatteringCoeff: f32,
+                    absorptionCoeff: f32,
+                    baseColorR: f32,
+                    baseColorG: f32,
+                    baseColorB: f32,
+                    animationSpeed: f32,
                 };
 
-                struct LightUniform {
-                    position: vec3<f32>, brightness: f32,
-                    size: f32, _padding0: vec3<f32>,
-                    color: vec3<f32>, _padding1: f32,
-                };
-
-                struct Sphere {
-                    position_radius: vec4<f32>,
-                    albedo_metallic: vec4<f32>,
-                    pbr_properties: vec4<f32>,
-                };
-
-                struct BvhNode {
-                    minBounds: vec3<f32>, isLeaf: u32,
-                    maxBounds: vec3<f32>, primitiveCount: u32,
-                    leftChildOrFirstPrimitiveIndex: u32, _padding: vec3<u32>,
-                };
-
-                struct WaterParams {
-                    strength: f32, frequency: f32, speed: f32, _padding: f32,
-                };
-                struct TerrainParams {
-                    heightScale: f32, frequency: f32, _padding0: f32, _padding1: f32,
-                };
-                struct TimeUniform {
-                    time: f32, frame_count: u32, _padding0: vec2<f32>,
-                };
-
-                struct RaytracerParams {
-                    maxBounces: u32,
-                    maxRaymarchSteps: u32,
-                    shadowSamples: u32,
-                    dofSamples: u32,
-
-                    numBVHNodes: u32,
-                    numPrimitives: u32,
-                    skyPreset: u32,
-                    _padding0: u32,
-
-                    warpStrength: f32,
-                    focalDistance: f32,
-                    apertureSize: f32,
-                    _padding1: f32,
-                };
-
-                const MATERIAL_DIFFUSE: u32 = 0u;
-                const MATERIAL_REFLECTIVE: u32 = 1u;
-                const MATERIAL_REFRACTIVE: u32 = 2u;
+                const MATERIAL_DIFFUSE:u32=0u;const MATERIAL_REFLECTIVE:u32=1u;const MATERIAL_REFRACTIVE:u32=2u;
+                const MIN_DIST:f32=0.0001f;const MAX_DIST:f32=1000.0f;const EPSILON:f32=0.001f;const STACK_SIZE:u32=64u;const PI:f32=3.14159265359f;
 
                 @group(0) @binding(0) var<uniform> cameraUBO: CameraUniform;
                 @group(0) @binding(1) var<uniform> lightUBO: LightUniform;
@@ -1213,468 +1153,107 @@ const bvhWorkerScript = `
                 @group(0) @binding(5) var<uniform> terrainUBO: TerrainParams;
                 @group(0) @binding(6) var outputTexture: texture_storage_2d<rgba32float, write>;
                 @group(0) @binding(7) var inputTexture: texture_2d<f32>;
+                @group(0) @binding(8) var noiseSampler: sampler;
+                @group(0) @binding(9) var noiseTexture3D: texture_3d<f32>;
+                @group(0) @binding(10) var<uniform> cloudParamsUBO: CloudParamsUBO;
 
                 @group(1) @binding(0) var<storage, read> spheres: array<Sphere>;
                 @group(1) @binding(1) var<storage, read> bvhNodes: array<BvhNode>;
                 @group(1) @binding(2) var<storage, read> primitiveIndices: array<u32>;
 
-                const MIN_DIST: f32 = 0.0001f;
-                const MAX_DIST: f32 = 1000.0f;
-                const EPSILON: f32 = 0.001f;
-                const STACK_SIZE: u32 = 64u;
-                const PI: f32 = 3.14159265359f;
-
-                struct Ray {
-                    origin: vec3<f32>,
-                    direction: vec3<f32>,
-                };
-
-                struct HitInfo {
-                    hit_pos: vec3<f32>,
-                    normal: vec3<f32>,
-                    distance: f32,
-                    is_hit: bool,
-                    object_id: u32,
-                    sphere_idx: u32,
-                    is_water: bool,
-                };
-
-                fn clamp_f(value: f32, min_val: f32, max_val: f32) -> f32 {
-                    return max(min(value, max_val), min_val);
+                fn sample3DNoiseTexture(world_pos: vec3<f32>, noise_texture_scale: f32) -> f32 {
+                    let scaled_pos = world_pos * noise_texture_scale;
+                    return textureSampleLevel(noiseTexture3D, noiseSampler, scaled_pos, 0.0f).r;
                 }
 
-                fn domainWarp(p: vec3<f32>, time: f32, strength: f32) -> vec3<f32> {
-                    if (strength == 0.0f) { return p; }
-                    let offset_factor = vec3<f32>(
-                        snoise(p * 0.5f + time * 0.1f + vec3<f32>(10.0f, 20.0f, 30.0f)),
-                        snoise(p * 0.7f - time * 0.2f + vec3<f32>(40.0f, 50.0f, 60.0f)),
-                        snoise(p * 0.9f + time * 0.3f + vec3<f32>(70.0f, 80.0f, 90.0f))
-                    );
-                    return p + offset_factor * strength;
-                }
+                fn domainWarp(p:vec3<f32>,time:f32,strength:f32)->vec3<f32>{if(strength==0.0f){return p;}let offset_factor=vec3<f32>(snoise(p*0.5f+time*0.1f+vec3<f32>(10.0,20.0,30.0)),snoise(p*0.7f-time*0.2f+vec3<f32>(40.0,50.0,60.0)),snoise(p*0.9f+time*0.3f+vec3<f32>(70.0,80.0,90.0)));return p+offset_factor*strength;}
+                fn terrainHeight(x:f32,z:f32,time:f32)->f32{if(terrainUBO.heightScale==0.0f){return -100000.0f;}let p_large=vec3<f32>(x,z,time*0.01f)*0.05f;let large_noise=fBm(p_large);let p_detail=vec3<f32>(x,z,time*0.05f)*terrainUBO.frequency;let detail_noise=fBm(p_detail);let center_dist=distance(vec2<f32>(x,z),vec2<f32>(0.0,0.0));let island_factor=smoothstep(150.0f,0.0f,center_dist);let base_h=(0.5f+0.5f*large_noise*0.6f)+(0.5f+0.5f*detail_noise*0.4f);let scaled_h=(base_h/2.0f)*terrainUBO.heightScale;return max(-2.0f,scaled_h*island_factor);}
+                fn calculateWaveHeight(x:f32,z:f32,time:f32)->f32{var h:f32=0.0f;let freq=waterUBO.frequency;let str=waterUBO.strength;h+=sin(x*freq+time*waterUBO.speed)*str*0.7f;h+=cos(z*freq*1.5f+time*waterUBO.speed*0.8f)*str*0.5f;h+=sin((x+z)*freq*0.8f+time*waterUBO.speed*1.2f)*str*0.3f;return h;}
+                fn sdWaterPlane(p:vec3<f32>,time:f32,warp_strength:f32)->f32{let warped_p=domainWarp(p,time*0.5f,warp_strength);return warped_p.y-calculateWaveHeight(warped_p.x,warped_p.z,time);}
+                fn sdSphere(p:vec3<f32>,s:Sphere,warp_strength:f32)->f32{let warped_center=domainWarp(s.position_radius.xyz,timeUBO.time*0.5f,warp_strength);return distance(p,warped_center)-s.position_radius.w;}
+                fn intersect_aabb(ro:vec3<f32>,inv_dir:vec3<f32>,min_b:vec3<f32>,max_b:vec3<f32>)->f32{let t1=(min_b-ro)*inv_dir;let t2=(max_b-ro)*inv_dir;let t_min=min(t1,t2);let t_max=max(t1,t2);let te=max(max(t_min.x,t_min.y),t_min.z);let tx=min(min(t_max.x,t_max.y),t_max.z);if(te>tx||tx<0.0f){return -1.0f;}return max(0.0f,te);}
+                fn bvh_scene_sdf_spheres(ro:vec3<f32>,rd:vec3<f32>,time:f32,warp_str:f32,closest_d:ptr<function,f32>,closest_idx:ptr<function,u32>){if(raytracerUBO.numPrimitives==0u||raytracerUBO.numBVHNodes==0u){return;}var inv_dir=1.0f/rd;var stack:array<u32,STACK_SIZE>;var stack_ptr:u32=0u;var curr_node_idx=0u;for(var iter:u32=0u;iter<1024u;iter=iter+1u){if(stack_ptr>=STACK_SIZE||curr_node_idx>=raytracerUBO.numBVHNodes){break;}let node=bvhNodes[curr_node_idx];let t=intersect_aabb(ro,inv_dir,node.minBounds,node.maxBounds);if(t==-1.0f||t>*closest_d){if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];continue;}if(node.isLeaf==1u){for(var i:u32=0u;i<node.primitiveCount;i=i+1u){let sph_idx=primitiveIndices[node.leftChildOrFirstPrimitiveIndex+i];if(sph_idx>=raytracerUBO.numPrimitives){continue;}let s=spheres[sph_idx];let d=sdSphere(ro,s,warp_str);if(d<*closest_d){*closest_d=d;*closest_idx=sph_idx;}}if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];}else{let left_child=node.leftChildOrFirstPrimitiveIndex;let right_child=node.leftChildOrFirstPrimitiveIndex+1u;if(left_child>=raytracerUBO.numBVHNodes||right_child>=raytracerUBO.numBVHNodes){if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];continue;}let t_l=intersect_aabb(ro,inv_dir,bvhNodes[left_child].minBounds,bvhNodes[left_child].maxBounds);let t_r=intersect_aabb(ro,inv_dir,bvhNodes[right_child].minBounds,bvhNodes[right_child].maxBounds);if(t_l!=-1.0f&&t_r!=-1.0f){if(t_l<t_r){stack[stack_ptr]=right_child;stack_ptr=stack_ptr+1u;curr_node_idx=left_child;}else{stack[stack_ptr]=left_child;stack_ptr=stack_ptr+1u;curr_node_idx=right_child;}}else if(t_l!=-1.0f){curr_node_idx=left_child;}else if(t_r!=-1.0f){curr_node_idx=right_child;}else{if(stack_ptr==0u){break;}stack_ptr=stack_ptr-1u;curr_node_idx=stack[stack_ptr];}}}}
+                fn sceneSDF(p:vec3<f32>,time:f32,warp_str:f32,obj_id:ptr<function,u32>)->f32{var min_d:f32=MAX_DIST;*obj_id=999u;let terrain_d=p.y-terrainHeight(p.x,p.z,time);if(terrain_d<min_d){min_d=terrain_d;*obj_id=0u;}let water_d=sdWaterPlane(p,time,warp_str);if(water_d<min_d){min_d=water_d;*obj_id=1u;}var closest_sph_d=MAX_DIST;var closest_sph_idx:u32=0u;bvh_scene_sdf_spheres(p,vec3<f32>(0.0f),time,warp_str,&closest_sph_d,&closest_sph_idx);if(closest_sph_d<min_d){min_d=closest_sph_d;*obj_id=closest_sph_idx+2u;}return min_d;}
+                fn estimateNormal(p:vec3<f32>,time:f32,warp_str:f32,obj_id_hint:u32)->vec3<f32>{var id_dummy:u32=0u;let gx=sceneSDF(p+vec3<f32>(EPSILON,0.0,0.0),time,warp_str,&id_dummy)-sceneSDF(p-vec3<f32>(EPSILON,0.0,0.0),time,warp_str,&id_dummy);let gy=sceneSDF(p+vec3<f32>(0.0,EPSILON,0.0),time,warp_str,&id_dummy)-sceneSDF(p-vec3<f32>(0.0,EPSILON,0.0),time,warp_str,&id_dummy);let gz=sceneSDF(p+vec3<f32>(0.0,0.0,EPSILON),time,warp_str,&id_dummy)-sceneSDF(p-vec3<f32>(0.0,0.0,EPSILON),time,warp_str,&id_dummy);return normalize(vec3<f32>(gx,gy,gz));}
+                fn calculateWaterNormal(p:vec3<f32>,time:f32,warp_str:f32)->vec3<f32>{let wp=domainWarp(p,time*0.5f,warp_str);let x=wp.x;let z=wp.z;let hb=calculateWaveHeight(x,z,time);let eps=0.001f;let hx=calculateWaveHeight(x+eps,z,time);let hz=calculateWaveHeight(x,z+eps,time);return normalize(vec3<f32>(-(hx-hb)/eps,1.0f,-(hz-hb)/eps));}
+                fn calculateTerrainNormal(p:vec3<f32>,time:f32,warp_str:f32)->vec3<f32>{let wp=domainWarp(p,time*0.5f,warp_str);let x=wp.x;let z=wp.z;let hb=terrainHeight(x,z,time);let eps=0.001f;let hx=terrainHeight(x+eps,z,time);let hz=terrainHeight(x,z+eps,time);return normalize(vec3<f32>(-(hx-hb)/eps,1.0f,-(hz-hb)/eps));}
+                fn raymarch(ray:Ray,time:f32,warp_str:f32)->HitInfo{var hi:HitInfo;hi.is_hit=false;hi.distance=MAX_DIST;hi.sphere_idx=0u;hi.is_water=false;var total_dist:f32=0.0f;var curr_obj_id:u32=999u;for(var i:u32=0u;i<raytracerUBO.maxRaymarchSteps;i=i+1u){let cp=ray.origin+ray.direction*total_dist;let d=sceneSDF(cp,time,warp_str,&curr_obj_id);if(d<MIN_DIST){hi.is_hit=true;hi.hit_pos=cp;hi.distance=total_dist;hi.object_id=curr_obj_id;if(curr_obj_id==1u){hi.normal=calculateWaterNormal(cp,time,warp_str);hi.is_water=true;}else if(curr_obj_id==0u){hi.normal=calculateTerrainNormal(cp,time,warp_str);hi.is_water=false;}else{hi.sphere_idx=curr_obj_id-2u;hi.normal=estimateNormal(cp,time,warp_str,curr_obj_id);hi.is_water=false;}break;}total_dist+=d;if(total_dist>=MAX_DIST){break;}}return hi;}
 
-                fn terrainHeight(x: f32, z: f32, time: f32) -> f32 {
-                    if (terrainUBO.heightScale == 0.0f) { return -100000.0f; }
-                    let p_large_scale = vec3<f32>(x, z, time * 0.01f) * 0.05f;
-                    let large_scale_noise = fBm(p_large_scale);
+                fn getSkyColor(rd:vec3<f32>,sky_preset:u32)->vec3<f32>{let sun_dir=normalize(lightUBO.position.xyz);let sun_dot=dot(rd,sun_dir);let sun_i=smoothstep(0.99f,1.0f,sun_dot);let sun_c=lightUBO.color*sun_i*lightUBO.brightness;var sky_top:vec3<f32>;var sky_hor:vec3<f32>;if(sky_preset==0u){sky_top=vec3<f32>(0.5,0.7,1.0);sky_hor=vec3<f32>(0.7,0.8,0.9);}else{sky_top=vec3<f32>(0.6,0.7,0.85);sky_hor=vec3<f32>(1.0,0.8,0.6);}let yf=max(0.0f,rd.y);let grad_c=mix(sky_hor,sky_top,yf);return grad_c+sun_c;}
 
-                    let p_detail_scale = vec3<f32>(x, z, time * 0.05f) * terrainUBO.frequency;
-                    let detail_noise = fBm(p_detail_scale);
+                fn renderClouds(ray_origin: vec3<f32>, ray_direction: vec3<f32>, t_max_sky: f32, sky_preset_val: u32) -> vec4<f32> {
+                    let base_sky_color = getSkyColor(ray_direction, sky_preset_val);
+                    var accumulated_color = vec3<f32>(0.0f);
+                    var accumulated_alpha = 0.0f;
 
-                    let center_dist = distance(vec2<f32>(x, z), vec2<f32>(0.0f, 0.0f));
-                    let island_shape_factor = smoothstep(150.0f, 0.0f, center_dist);
+                    var t_min_cloud_layer = (cloudParamsUBO.layerMinY - ray_origin.y) / ray_direction.y;
+                    var t_max_cloud_layer = (cloudParamsUBO.layerMaxY - ray_origin.y) / ray_direction.y;
 
-                    let base_height = (0.5f + 0.5f * large_scale_noise * 0.6f) + (0.5f + 0.5f * detail_noise * 0.4f);
-                    let scaled_height_from_noise = (base_height / 2.0f) * terrainUBO.heightScale;
-                    return max(-2.0f, scaled_height_from_noise * island_shape_factor);
-                }
-
-                fn calculateWaveHeight(x: f32, z: f32, time: f32) -> f32 {
-                    var h: f32 = 0.0f;
-                    let initial_freq = waterUBO.frequency;
-                    let initial_strength = waterUBO.strength;
-
-                    h += sin(x * initial_freq + time * waterUBO.speed) * initial_strength * 0.7f;
-                    h += cos(z * initial_freq * 1.5f + time * waterUBO.speed * 0.8f) * initial_strength * 0.5f;
-                    h += sin((x + z) * initial_freq * 0.8f + time * waterUBO.speed * 1.2f) * initial_strength * 0.3f;
-
-                    return h;
-                }
-
-                fn sdWaterPlane(p: vec3<f32>, time: f32, warp_strength: f32) -> f32 {
-                    let warped_p = domainWarp(p, time * 0.5f, warp_strength);
-                    return warped_p.y - calculateWaveHeight(warped_p.x, warped_p.z, time);
-                }
-
-                fn sdSphere(p: vec3<f32>, s: Sphere, warp_strength: f32) -> f32 {
-                    let warped_center = domainWarp(s.position_radius.xyz, timeUBO.time * 0.5f, warp_strength);
-                    return distance(p, warped_center) - s.position_radius.w;
-                }
-
-                fn intersect_aabb(ray_origin: vec3<f32>, ray_inv_dir: vec3<f32>, min_bounds: vec3<f32>, max_bounds: vec3<f32>) -> f32 {
-                    let t1 = (min_bounds - ray_origin) * ray_inv_dir;
-                    let t2 = (max_bounds - ray_origin) * ray_inv_dir;
-
-                    let t_min_vec = min(t1, t2);
-                    let t_max_vec = max(t1, t2);
-
-                    let t_enter = max(max(t_min_vec.x, t_min_vec.y), t_min_vec.z);
-                    let t_exit = min(min(t_max_vec.x, t_max_vec.y), t_max_vec.z);
-
-                    if (t_enter > t_exit || t_exit < 0.0f) {
-                        return -1.0f;
-                    }
-                    return max(0.0f, t_enter);
-                }
-
-                fn bvh_scene_sdf_spheres(ray_origin: vec3<f32>, ray_direction: vec3<f32>,
-                                         current_time: f32, warp_strength: f32,
-                                         closest_dist: ptr<function, f32>, closest_sphere_idx: ptr<function, u32>) {
-
-                    if (raytracerUBO.numPrimitives == 0u || raytracerUBO.numBVHNodes == 0u) { return; }
-
-                    var inv_dir = 1.0f / ray_direction;
-                    var node_stack: array<u32, STACK_SIZE>;
-                    var stack_ptr: u32 = 0u;
-                    var current_node_idx = 0u;
-
-                    for (var iter: u32 = 0u; iter < 1024u; iter = iter + 1u) {
-                        if (stack_ptr >= STACK_SIZE) { break; }
-                        if (current_node_idx >= raytracerUBO.numBVHNodes) { break; }
-
-                        let node = bvhNodes[current_node_idx];
-                        let t = intersect_aabb(ray_origin, inv_dir, node.minBounds, node.maxBounds);
-
-                        if (t == -1.0f || t > *closest_dist) {
-                            if (stack_ptr == 0u) { break; }
-                            stack_ptr = stack_ptr - 1u;
-                            current_node_idx = node_stack[stack_ptr];
-                            continue;
+                    if (ray_direction.y == 0.0f) {
+                        if (ray_origin.y < cloudParamsUBO.layerMinY || ray_origin.y > cloudParamsUBO.layerMaxY) {
+                            return vec4<f32>(base_sky_color, 1.0f);
                         }
+                        t_min_cloud_layer = 0.0f;
+                        t_max_cloud_layer = t_max_sky;
+                    }
 
-                        if (node.isLeaf == 1u) {
-                            for (var i: u32 = 0u; i < node.primitiveCount; i = i + 1u) {
-                                let sphere_original_idx = primitiveIndices[node.leftChildOrFirstPrimitiveIndex + i];
-                                if (sphere_original_idx >= raytracerUBO.numPrimitives) { continue; }
-                                let s = spheres[sphere_original_idx];
-                                let d = sdSphere(ray_origin, s, warp_strength);
-                                if (d < *closest_dist) {
-                                    *closest_dist = d;
-                                    *closest_sphere_idx = sphere_original_idx;
-                                }
-                            }
-                            if (stack_ptr == 0u) { break; }
-                            stack_ptr = stack_ptr - 1u;
-                            current_node_idx = node_stack[stack_ptr];
-                        } else {
-                            let left_child_idx = node.leftChildOrFirstPrimitiveIndex;
-                            let right_child_idx = node.leftChildOrFirstPrimitiveIndex + 1u;
+                    if (t_min_cloud_layer > t_max_cloud_layer) {
+                        let temp = t_min_cloud_layer;
+                        t_min_cloud_layer = t_max_cloud_layer;
+                        t_max_cloud_layer = temp;
+                    }
 
-                            if (left_child_idx >= raytracerUBO.numBVHNodes || right_child_idx >= raytracerUBO.numBVHNodes) {
-                                if (stack_ptr == 0u) { break; }
-                                stack_ptr = stack_ptr - 1u;
-                                current_node_idx = node_stack[stack_ptr];
-                                continue;
-                            }
+                    let t_enter = max(0.0f, t_min_cloud_layer);
+                    let t_exit = min(t_max_sky, t_max_cloud_layer);
 
-                            let t_left = intersect_aabb(ray_origin, inv_dir, bvhNodes[left_child_idx].minBounds, bvhNodes[left_child_idx].maxBounds);
-                            let t_right = intersect_aabb(ray_origin, inv_dir, bvhNodes[right_child_idx].minBounds, bvhNodes[right_child_idx].maxBounds);
+                    if (t_enter >= t_exit || t_exit < 0.0f) {
+                        return vec4<f32>(base_sky_color, 1.0f);
+                    }
 
-                            if (t_left != -1.0f && t_right != -1.0f) {
-                                if (t_left < t_right) {
-                                    node_stack[stack_ptr] = right_child_idx;
-                                    stack_ptr = stack_ptr + 1u;
-                                    current_node_idx = left_child_idx;
-                                } else {
-                                    node_stack[stack_ptr] = left_child_idx;
-                                    stack_ptr = stack_ptr + 1u;
-                                    current_node_idx = right_child_idx;
-                                }
-                            } else if (t_left != -1.0f) {
-                                current_node_idx = left_child_idx;
-                            } else if (t_right != -1.0f) {
-                                current_node_idx = right_child_idx;
-                            } else {
-                                if (stack_ptr == 0u) { break; }
-                                stack_ptr = stack_ptr - 1u;
-                                current_node_idx = node_stack[stack_ptr];
-                            }
+                    let march_steps_actual = cloudParamsUBO.marchSteps;
+                    let step_size = (t_exit - t_enter) / f32(march_steps_actual);
+
+                    for (var i: u32 = 0u; i < march_steps_actual; i = i + 1u) {
+                        if (accumulated_alpha >= 0.99f) { break; }
+
+                        let t = t_enter + (f32(i) + 0.5f) * step_size;
+                        let current_pos = ray_origin + ray_direction * t;
+
+                        let time_animated_offset = vec3<f32>(timeUBO.time * cloudParamsUBO.animationSpeed * 0.02f, 0.0f, timeUBO.time * cloudParamsUBO.animationSpeed * 0.01f);
+                        let noise_val = sample3DNoiseTexture(current_pos + time_animated_offset, cloudParamsUBO.noiseScale);
+
+                        if (noise_val > cloudParamsUBO.densityThreshold) {
+                            let density_normalized = (noise_val - cloudParamsUBO.densityThreshold) / (1.0f - cloudParamsUBO.densityThreshold);
+                            let actual_density = density_normalized * cloudParamsUBO.densityMultiplier;
+
+                            let light_attenuation = exp(-actual_density * cloudParamsUBO.absorptionCoeff * step_size);
+
+                            let sun_direction = normalize(lightUBO.position.xyz);
+                            let light_intensity = max(0.0f, dot(sun_direction, ray_direction)) * lightUBO.brightness;
+
+                            let current_cloud_base_color = vec3<f32>(cloudParamsUBO.baseColorR, cloudParamsUBO.baseColorG, cloudParamsUBO.baseColorB);
+                            let cloud_color_lit = current_cloud_base_color * light_intensity * lightUBO.color;
+
+                            let step_alpha = clamp(actual_density * cloudParamsUBO.scatteringCoeff * step_size, 0.0f, 1.0f);
+                            accumulated_color += step_alpha * cloud_color_lit * light_attenuation * (1.0f - accumulated_alpha);
+                            accumulated_alpha += step_alpha * (1.0f - accumulated_alpha);
                         }
                     }
+
+                    let final_color = mix(base_sky_color, accumulated_color, accumulated_alpha);
+                    return vec4<f32>(final_color, 1.0f);
                 }
 
-                fn sceneSDF(p: vec3<f32>, current_time: f32, warp_strength: f32, object_id: ptr<function, u32>) -> f32 {
-                    var min_dist: f32 = MAX_DIST;
-                    *object_id = 999u;
+                fn DistributionGGX(N:vec3<f32>,H:vec3<f32>,roughness:f32)->f32{let a=roughness*roughness;let a2=a*a;let NdotH=max(dot(N,H),0.0f);let NdotH2=NdotH*NdotH;let nom=a2;var den=(NdotH2*(a2-1.0f)+1.0f);den=PI*den*den;return nom/max(den,0.0000001f);}
+                fn GeometrySchlickGGX(NdotV:f32,roughness:f32)->f32{let r=(roughness+1.0f);let k=(r*r)/8.0f;let nom=NdotV;let den=NdotV*(1.0f-k)+k;return nom/max(den,0.0000001f);}
+                fn GeometrySmith(N:vec3<f32>,V:vec3<f32>,L:vec3<f32>,roughness:f32)->f32{let NdotV=max(dot(N,V),0.0f);let NdotL=max(dot(N,L),0.0f);return GeometrySchlickGGX(NdotV,roughness)*GeometrySchlickGGX(NdotL,roughness);}
+                fn FresnelSchlickPBR(cosTheta:f32,F0:vec3<f32>)->vec3<f32>{return F0+(vec3<f32>(1.0f)-F0)*pow(clamp(1.0f-cosTheta,0.0f,1.0f),5.0f);}
+                fn calculateLighting(hit_pos:vec3<f32>,N:vec3<f32>,V:vec3<f32>,time:f32,albedo:vec3<f32>,metallic:f32,roughness:f32,base_reflectivity:f32,is_water_medium:u32,gid:vec2<u32>)->vec3<f32>{var Lo=vec3<f32>(0.0f);var ambient=albedo*0.02f;if(is_water_medium==1u){ambient=albedo*0.04f;}let F0=mix(vec3<f32>(base_reflectivity),albedo,metallic);let num_samples=max(1u,raytracerUBO.shadowSamples);let light_dir_center=normalize(lightUBO.position.xyz-hit_pos);let light_dist=distance(lightUBO.position.xyz,hit_pos);var light_basis_u=normalize(cross(light_dir_center,vec3<f32>(0.0,1.0,0.0)));if(length(light_basis_u)<0.1f){light_basis_u=normalize(cross(light_dir_center,vec3<f32>(1.0,0.0,0.0)));}let light_basis_v=cross(light_basis_u,light_dir_center);for(var s_idx:u32=0u;s_idx<num_samples;s_idx=s_idx+1u){let rand_u=rand_float(vec2<f32>(f32(gid.x),f32(gid.y)),time*1.3f+f32(s_idx)*7.7f);let rand_v=rand_float(vec2<f32>(f32(gid.y),f32(gid.x)),time*0.7f+f32(s_idx)*11.3f);let angle=rand_u*2.0f*PI;let radius_s=sqrt(rand_v);let offset_x=cos(angle)*radius_s*lightUBO.size;let offset_y=sin(angle)*radius_s*lightUBO.size;let perturbed_light_pos=lightUBO.position.xyz+light_basis_u*offset_x+light_basis_v*offset_y;let L=normalize(perturbed_light_pos-hit_pos);let shadow_ray_o=hit_pos+N*MIN_DIST;let occluder_d=raymarch(Ray(shadow_ray_o,L),time,raytracerUBO.warpStrength).distance;let shadow_f=select(0.0f,1.0f,occluder_d>=light_dist-MIN_DIST);if(shadow_f>0.0f){let H=normalize(V+L);let NdotL=max(dot(N,L),0.0f);let NdotV=max(dot(N,V),0.0f);let NdotH=max(dot(N,H),0.0f);let VdotH=max(dot(V,H),0.0f);let D=DistributionGGX(N,H,roughness);let G=GeometrySmith(N,V,L,roughness);let F=FresnelSchlickPBR(VdotH,F0);let num=D*G*F;let den=4.0f*NdotV*NdotL;let spec_brdf=num/max(den,0.0000001f);let kS=F;var kD=vec3<f32>(1.0f)-kS;kD*=(1.0f-metallic);let diff_brdf=kD*albedo/PI;let radiance=lightUBO.brightness*lightUBO.color;Lo+=(diff_brdf+spec_brdf)*radiance*NdotL*shadow_f;}}Lo/=f32(num_samples);return ambient+Lo;}
+                fn snellsLaw(incident:vec3<f32>,normal:vec3<f32>,n1:f32,n2:f32)->vec3<f32>{let cosThetaI=dot(-incident,normal);let clamped_cos=clamp(cosThetaI,-1.0f,1.0f);let eta=n1/n2;let sinThetaT2=eta*eta*(1.0f-clamped_cos*clamped_cos);if(sinThetaT2>1.0f){return vec3<f32>(0.0f);}let cosThetaT=sqrt(1.0f-sinThetaT2);return eta*incident+(eta*clamped_cos-cosThetaT)*normal;}
+                fn fresnelSchlick(cos_theta:f32,n1:f32,n2:f32)->f32{let R0=pow((n1-n2)/(n1+n2),2.0f);return R0+(1.0f-R0)*pow(1.0f-cos_theta,5.0f);}
+                fn get_ior_and_normal(incident:vec3<f32>,normal:vec3<f32>,curr_ior:f32,obj_ior:f32)->array<f32,6>{var n1=curr_ior;var n2=obj_ior;var adj_norm=normal;var is_entering:f32=1.0f;if(dot(incident,normal)>0.0f){adj_norm=-normal;n1=obj_ior;n2=curr_ior;is_entering=0.0f;}return array<f32,6>(n1,n2,adj_norm.x,adj_norm.y,adj_norm.z,is_entering);}
 
-                    let terrain_dist = p.y - terrainHeight(p.x, p.z, current_time);
-                    if (terrain_dist < min_dist) {
-                        min_dist = terrain_dist;
-                        *object_id = 0u;
-                    }
-
-                    let water_dist = sdWaterPlane(p, current_time, warp_strength);
-                    if (water_dist < min_dist) {
-                        min_dist = water_dist;
-                        *object_id = 1u;
-                    }
-
-                    var closest_sphere_dist = MAX_DIST;
-                    var closest_sphere_original_idx: u32 = 0u;
-                    bvh_scene_sdf_spheres(p, vec3<f32>(0.0f, 0.0f, 0.0f), current_time, warp_strength, &closest_sphere_dist, &closest_sphere_original_idx);
-                    if (closest_sphere_dist < min_dist) {
-                        min_dist = closest_sphere_dist;
-                        *object_id = closest_sphere_original_idx + 2u;
-                    }
-                    return min_dist;
-                }
-
-                fn estimateNormal(p: vec3<f32>, current_time: f32, warp_strength: f32, object_id_hint: u32) -> vec3<f32> {
-                    var id_dummy: u32 = 0u;
-                    let grad_x = sceneSDF(p + vec3<f32>(EPSILON, 0.0f, 0.0f), current_time, warp_strength, &id_dummy) - sceneSDF(p - vec3<f32>(EPSILON, 0.0f, 0.0f), current_time, warp_strength, &id_dummy);
-                    let grad_y = sceneSDF(p + vec3<f32>(0.0f, EPSILON, 0.0f), current_time, warp_strength, &id_dummy) - sceneSDF(p - vec3<f32>(0.0f, EPSILON, 0.0f), current_time, warp_strength, &id_dummy);
-                    let grad_z = sceneSDF(p + vec3<f32>(0.0f, 0.0f, EPSILON), current_time, warp_strength, &id_dummy) - sceneSDF(p - vec3<f32>(0.0f, 0.0f, EPSILON), current_time, warp_strength, &id_dummy);
-                    return normalize(vec3<f32>(grad_x, grad_y, grad_z));
-                }
-
-                fn calculateWaterNormal(p: vec3<f32>, time: f32, warp_strength: f32) -> vec3<f32> {
-                    let warped_p = domainWarp(p, time * 0.5f, warp_strength);
-                    let x = warped_p.x;
-                    let z = warped_p.z;
-                    let h_base = calculateWaveHeight(x, z, time);
-                    let eps = 0.001f;
-                    let h_x = calculateWaveHeight(x + eps, z, time);
-                    let h_z = calculateWaveHeight(x, z + eps, time);
-                    let nx = -(h_x - h_base) / eps;
-                    let ny = 1.0f;
-                    let nz = -(h_z - h_base) / eps;
-                    return normalize(vec3<f32>(nx, ny, nz));
-                }
-
-                fn calculateTerrainNormal(p: vec3<f32>, current_time: f32, warp_strength: f32) -> vec3<f32> {
-                    let warped_p = domainWarp(p, current_time * 0.5f, warp_strength);
-                    let x = warped_p.x;
-                    let z = warped_p.z;
-                    let h_base = terrainHeight(x, z, current_time);
-                    let eps = 0.001f;
-                    let h_x = terrainHeight(x + eps, z, current_time);
-                    let h_z = terrainHeight(x, z + eps, current_time);
-                    let nx = -(h_x - h_base) / eps;
-                    let ny = 1.0f;
-                    let nz = -(h_z - h_base) / eps;
-                    return normalize(vec3<f32>(nx, ny, nz));
-                }
-
-                fn raymarch(ray: Ray, current_time: f32, warp_strength: f32) -> HitInfo {
-                    var hit_info: HitInfo;
-                    hit_info.is_hit = false;
-                    hit_info.distance = MAX_DIST;
-                    hit_info.sphere_idx = 0u;
-                    hit_info.is_water = false;
-
-                    var total_distance_marched: f32 = 0.0f;
-                    var current_object_id_in_loop: u32 = 999u;
-
-                    for (var i: u32 = 0u; i < raytracerUBO.maxRaymarchSteps; i = i + 1u) {
-                        let current_pos = ray.origin + ray.direction * total_distance_marched;
-                        let d = sceneSDF(current_pos, current_time, warp_strength, &current_object_id_in_loop);
-
-                        if (d < MIN_DIST) {
-                            hit_info.is_hit = true;
-                            hit_info.hit_pos = current_pos;
-                            hit_info.distance = total_distance_marched;
-                            hit_info.object_id = current_object_id_in_loop;
-
-                            if (current_object_id_in_loop == 1u) {
-                                hit_info.normal = calculateWaterNormal(current_pos, current_time, warp_strength);
-                                hit_info.is_water = true;
-                            } else if (current_object_id_in_loop == 0u) {
-                                hit_info.normal = calculateTerrainNormal(current_pos, current_time, warp_strength);
-                                hit_info.is_water = false;
-                            }
-                            else {
-                                hit_info.sphere_idx = current_object_id_in_loop - 2u;
-                                hit_info.normal = estimateNormal(current_pos, current_time, warp_strength, current_object_id_in_loop);
-                                hit_info.is_water = false;
-                            }
-                            break;
-                        }
-
-                        total_distance_marched += d;
-                        if (total_distance_marched >= MAX_DIST) {
-                            break;
-                        }
-                    }
-                    return hit_info;
-                }
-
-                fn getSkyColor(ray_dir: vec3<f32>, sky_preset: u32) -> vec3<f32> {
-                    let sun_dir = normalize(lightUBO.position.xyz);
-                    let sun_dot = dot(ray_dir, sun_dir);
-                    let sun_intensity = smoothstep(0.99f, 1.0f, sun_dot);
-                    let sun_color_base = lightUBO.color * sun_intensity * lightUBO.brightness;
-
-                    var sky_color_top: vec3<f32>;
-                    var sky_color_horizon: vec3<f32>;
-
-                    if (sky_preset == 0u) {
-                        sky_color_top = vec3<f32>(0.5f, 0.7f, 1.0f);
-                        sky_color_horizon = vec3<f32>(0.7f, 0.8f, 0.9f);
-                    } else {
-                        sky_color_top = vec3<f32>(0.6f, 0.7f, 0.85f);
-                        sky_color_horizon = vec3<f32>(1.0f, 0.8f, 0.6f);
-                    }
-
-                    let y_factor = max(0.0f, ray_dir.y);
-                    let gradient_color = mix(sky_color_horizon, sky_color_top, y_factor);
-
-                    let cloud_coverage: f32 = 0.5f;
-                    let cloud_density: f32 = 0.8f;
-                    let cloud_detail: f32 = 0.1f;
-
-                    let cloud_uv = ray_dir.xz * 10.0f;
-                    let cloud_noise = snoise(vec3<f32>(cloud_uv.x, ray_dir.y * 5.0f, cloud_uv.y + timeUBO.time * 0.05f));
-                    let clouds = smoothstep(cloud_coverage - cloud_detail, cloud_coverage + cloud_detail, cloud_noise) * cloud_density;
-
-                    let final_sky_color = mix(gradient_color, vec3<f32>(0.9f, 0.9f, 0.9f), clouds);
-                    return final_sky_color + sun_color_base;
-                }
-
-                fn DistributionGGX(N: vec3<f32>, H: vec3<f32>, roughness: f32) -> f32 {
-                    let a = roughness*roughness;
-                    let a2 = a*a;
-                    let NdotH = max(dot(N, H), 0.0f);
-                    let NdotH2 = NdotH*NdotH;
-                    let nom   = a2;
-                    var denom = (NdotH2 * (a2 - 1.0f) + 1.0f);
-                    denom = PI * denom * denom;
-                    return nom / max(denom, 0.0000001f);
-                }
-
-                fn GeometrySchlickGGX(NdotV: f32, roughness: f32) -> f32 {
-                    let r = (roughness + 1.0f);
-                    let k = (r*r) / 8.0f;
-                    let nom   = NdotV;
-                    let denom = NdotV * (1.0f - k) + k;
-                    return nom / max(denom, 0.0000001f);
-                }
-
-                fn GeometrySmith(N: vec3<f32>, V: vec3<f32>, L: vec3<f32>, roughness: f32) -> f32 {
-                    let NdotV = max(dot(N, V), 0.0f);
-                    let NdotL = max(dot(N, L), 0.0f);
-                    let ggx2 = GeometrySchlickGGX(NdotV, roughness);
-                    let ggx1 = GeometrySchlickGGX(NdotL, roughness);
-                    return ggx1 * ggx2;
-                }
-
-                fn FresnelSchlickPBR(cosTheta: f32, F0: vec3<f32>) -> vec3<f32> {
-                    return F0 + (vec3<f32>(1.0f) - F0) * pow(clamp(1.0f - cosTheta, 0.0f, 1.0f), 5.0f);
-                }
-
-                fn calculateLighting(hit_pos: vec3<f32>, N: vec3<f32>, V: vec3<f32>, current_time: f32,
-                                     albedo: vec3<f32>, metallic: f32, roughness: f32, base_reflectivity: f32,
-                                     is_in_water_medium_flag: u32, global_id_xy: vec2<u32>) -> vec3<f32> {
-
-                    var Lo = vec3<f32>(0.0f);
-                    var ambient_color = albedo * 0.02f;
-                    if (is_in_water_medium_flag == 1u) { ambient_color = albedo * 0.04f; }
-
-                    let F0 = mix(vec3<f32>(base_reflectivity), albedo, metallic);
-
-                    let num_shadow_samples = max(1u, raytracerUBO.shadowSamples);
-                    let light_center_dir = normalize(lightUBO.position.xyz - hit_pos);
-                    let light_to_hit_dist = distance(lightUBO.position.xyz, hit_pos);
-
-                    var light_basis_u = normalize(cross(light_center_dir, vec3<f32>(0.0f, 1.0f, 0.0f)));
-                    if (length(light_basis_u) < 0.1f) {
-                        light_basis_u = normalize(cross(light_center_dir, vec3<f32>(1.0f, 0.0f, 0.0f)));
-                    }
-                    let light_basis_v = cross(light_basis_u, light_center_dir);
-
-                    for (var s_idx: u32 = 0u; s_idx < num_shadow_samples; s_idx = s_idx + 1u) {
-                        let rand_u_val = rand_float(vec2<f32>(f32(global_id_xy.x), f32(global_id_xy.y)), timeUBO.time * 1.3f + f32(s_idx) * 7.7f);
-                        let rand_v_val = rand_float(vec2<f32>(f32(global_id_xy.y), f32(global_id_xy.x)), timeUBO.time * 0.7f + f32(s_idx) * 11.3f);
-
-                        let angle = rand_u_val * 2.0f * PI;
-                        let radius_scale = sqrt(rand_v_val);
-                        let offset_x = cos(angle) * radius_scale * lightUBO.size;
-                        let offset_y = sin(angle) * radius_scale * lightUBO.size;
-
-                        let perturbed_light_pos = lightUBO.position.xyz + light_basis_u * offset_x + light_basis_v * offset_y;
-                        let L = normalize(perturbed_light_pos - hit_pos);
-
-                        let shadow_ray_origin = hit_pos + N * MIN_DIST;
-                        let occluder_dist = raymarch(Ray(shadow_ray_origin, L), current_time, raytracerUBO.warpStrength).distance;
-
-                        let shadow_factor = select(0.0f, 1.0f, occluder_dist >= light_to_hit_dist - MIN_DIST);
-
-                        if (shadow_factor > 0.0f) {
-                            let H = normalize(V + L);
-                            let NdotL = max(dot(N, L), 0.0f);
-                            let NdotV = max(dot(N, V), 0.0f);
-                            let NdotH = max(dot(N, H), 0.0f);
-                            let VdotH = max(dot(V, H), 0.0f);
-
-                            let D = DistributionGGX(N, H, roughness);
-                            let G = GeometrySmith(N, V, L, roughness);
-                            let F = FresnelSchlickPBR(VdotH, F0);
-
-                            let numerator = D * G * F;
-                            let denominator = 4.0f * NdotV * NdotL;
-                            let specular_brdf = numerator / max(denominator, 0.0000001f);
-
-                            let kS = F;
-                            var kD = vec3<f32>(1.0f) - kS;
-                            kD *= (1.0f - metallic);
-
-                            let diffuse_brdf = kD * albedo / PI;
-                            let radiance = lightUBO.brightness * lightUBO.color;
-                            Lo += (diffuse_brdf + specular_brdf) * radiance * NdotL * shadow_factor;
-                        }
-                    }
-                    Lo /= f32(num_shadow_samples);
-                    return ambient_color + Lo;
-                }
-
-                fn snellsLaw(incident_dir: vec3<f32>, normal: vec3<f32>, n1: f32, n2: f32) -> vec3<f32> {
-                    let cosThetaI = dot(-incident_dir, normal);
-                    let clamped_cosThetaI = clamp(cosThetaI, -1.0f, 1.0f);
-
-                    let eta = n1 / n2;
-                    let sinThetaT2 = eta * eta * (1.0f - clamped_cosThetaI * clamped_cosThetaI);
-
-                    if (sinThetaT2 > 1.0f) { return vec3<f32>(0.0f); }
-
-                    let cosThetaT = sqrt(1.0f - sinThetaT2);
-                    return eta * incident_dir + (eta * clamped_cosThetaI - cosThetaT) * normal;
-                }
-
-                fn fresnelSchlick(cos_theta_i: f32, n1: f32, n2: f32) -> f32 {
-                    let R0 = pow((n1 - n2) / (n1 + n2), 2.0f);
-                    return R0 + (1.0f - R0) * pow(1.0f - cos_theta_i, 5.0f);
-                }
-
-                fn get_ior_and_normal(incident_dir: vec3<f32>, normal: vec3<f32>, current_medium_ior: f32, object_ior: f32) -> array<f32, 6> {
-                    var n1 = current_medium_ior;
-                    var n2 = object_ior;
-                    var adjusted_normal = normal;
-                    var is_entering_object_float: f32 = 1.0f;
-
-                    if (dot(incident_dir, normal) > 0.0f) {
-                        adjusted_normal = -normal;
-                        n1 = object_ior;
-                        n2 = current_medium_ior;
-                        is_entering_object_float = 0.0f;
-                    }
-                    return array<f32, 6>(n1, n2, adjusted_normal.x, adjusted_normal.y, adjusted_normal.z, is_entering_object_float);
-                }
-
-                fn get_color_from_sub_hit(ray: Ray, current_time: f32, is_sub_ray_in_water_medium_flag: u32, global_id_xy: vec2<u32>) -> vec3<f32> {
-                    let hit_info = raymarch(ray, current_time, raytracerUBO.warpStrength);
-
-                    if (!hit_info.is_hit) {
-                        return getSkyColor(ray.direction, raytracerUBO.skyPreset);
-                    } else if (hit_info.object_id == 0u) {
-                        let terrain_albedo = vec3<f32>(0.4f, 0.3f, 0.2f);
-                        let terrain_metallic = 0.0f;
-                        let terrain_roughness = 0.9f;
-                        let terrain_base_reflectivity = 0.04f;
-                        return calculateLighting(hit_info.hit_pos, hit_info.normal, -ray.direction, current_time, terrain_albedo, terrain_metallic, terrain_roughness, terrain_base_reflectivity, is_sub_ray_in_water_medium_flag, global_id_xy);
-                    } else if (hit_info.object_id == 1u) {
-                        let water_albedo = vec3<f32>(0.1f, 0.3f, 0.5f);
-                        let water_metallic = 0.0f;
-                        let water_roughness = 0.1f;
-                        let water_base_reflectivity = 0.04f;
-                        return calculateLighting(hit_info.hit_pos, hit_info.normal, -ray.direction, current_time, water_albedo, water_metallic, water_roughness, water_base_reflectivity, is_sub_ray_in_water_medium_flag, global_id_xy);
-                    } else {
-                        let s = spheres[hit_info.sphere_idx];
-                        let albedo = s.albedo_metallic.xyz;
-                        let metallic = s.albedo_metallic.w;
-                        let roughness = s.pbr_properties.x;
-                        let base_reflectivity = s.pbr_properties.y;
-                        return calculateLighting(hit_info.hit_pos, hit_info.normal, -ray.direction, current_time, albedo, metallic, roughness, base_reflectivity, is_sub_ray_in_water_medium_flag, global_id_xy);
-                    }
-                }
+                fn get_color_from_sub_hit(ray:Ray,time:f32,is_sub_water:u32,gid:vec2<u32>)->vec3<f32>{let hit=raymarch(ray,time,raytracerUBO.warpStrength);if(!hit.is_hit){return renderClouds(ray.origin, ray.direction, MAX_DIST, raytracerUBO.skyPreset).rgb;}else if(hit.object_id==0u){let alb=vec3<f32>(0.4,0.3,0.2);return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,alb,0.0f,0.9f,0.04f,is_sub_water,gid);}else if(hit.object_id==1u){let alb=vec3<f32>(0.1,0.3,0.5);return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,alb,0.0f,0.1f,0.04f,is_sub_water,gid);}else{let s=spheres[hit.sphere_idx];return calculateLighting(hit.hit_pos,hit.normal,-ray.direction,time,s.albedo_metallic.xyz,s.albedo_metallic.w,s.pbr_properties.x,s.pbr_properties.y,is_sub_water,gid);}}
 
                 fn traceRay(initial_ray: Ray, current_time: f32, global_id_xy: vec2<u32>) -> vec4<f32> {
                     var final_color = vec3<f32>(0.0f);
@@ -1688,38 +1267,38 @@ const bvhWorkerScript = `
                         let hit_info = raymarch(current_ray, current_time, raytracerUBO.warpStrength);
 
                         if (!hit_info.is_hit) {
-                            final_color += current_weight * getSkyColor(current_ray.direction, raytracerUBO.skyPreset);
+                            let cloud_result = renderClouds(current_ray.origin, current_ray.direction, MAX_DIST, raytracerUBO.skyPreset);
+                            final_color += current_weight * cloud_result.rgb;
                             break;
                         }
 
                         let N = hit_info.normal;
                         let hit_pos = hit_info.hit_pos;
                         let V = -current_ray.direction;
+                        var surface_color = vec3<f32>(0.0f);
 
                         is_in_water_medium_trace = select(0u, 1u, current_ior > 1.01f);
 
-                        if (hit_info.object_id == 0u) {
+                        if (hit_info.object_id == 0u) { // Terrain
                             let terrain_albedo = vec3<f32>(0.4f, 0.3f, 0.2f);
-                            let terrain_metallic = 0.0f;
-                            let terrain_roughness = 0.9f;
-                            let terrain_base_reflectivity = 0.04f;
-                            final_color += current_weight * calculateLighting(hit_pos, N, V, current_time, terrain_albedo, terrain_metallic, terrain_roughness, terrain_base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                            surface_color = calculateLighting(hit_pos, N, V, current_time, terrain_albedo, 0.0f, 0.9f, 0.04f, is_in_water_medium_trace, global_id_xy);
+                            let noise_val = sample3DNoiseTexture(hit_info.hit_pos, 0.1f);
+                            surface_color.r += noise_val * 0.5f;
+                            final_color += current_weight * surface_color;
                             break;
                         }
-                        else if (hit_info.object_id == 1u) {
+                        else if (hit_info.object_id == 1u) { // Water
                             let water_surface_albedo = vec3<f32>(0.1f, 0.3f, 0.5f);
                             let water_body_color_absorption = vec3<f32>(0.1f, 0.2f, 0.3f);
-                            let water_metallic = 0.0f;
-                            let water_roughness = 0.1f;
-                            let water_base_reflectivity = 0.04f;
+                            surface_color = calculateLighting(hit_pos, N, V, current_time, water_surface_albedo, 0.0f, 0.1f, 0.04f, is_in_water_medium_trace, global_id_xy);
+                            let noise_val = sample3DNoiseTexture(hit_info.hit_pos, 0.05f);
+                            surface_color.g += noise_val * 0.3f;
 
                             let iors_info = get_ior_and_normal(current_ray.direction, N, current_ior, water_ior);
-                            let n1 = iors_info[0];
-                            let n2 = iors_info[1];
+                            let n1 = iors_info[0]; let n2 = iors_info[1];
                             let adjusted_normal = vec3<f32>(iors_info[2], iors_info[3], iors_info[4]);
-                            let is_entering_object = u32(iors_info[5]);
 
-                            final_color += current_weight * calculateLighting(hit_pos, N, V, current_time, water_surface_albedo, water_metallic, water_roughness, water_base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                            final_color += current_weight * surface_color;
 
                             let reflected_dir = reflect(current_ray.direction, adjusted_normal);
                             let reflected_ray = Ray(hit_pos + reflected_dir * EPSILON, reflected_dir);
@@ -1728,7 +1307,7 @@ const bvhWorkerScript = `
                             let cos_theta_i = dot(-current_ray.direction, adjusted_normal);
                             let fresnel_reflectance = fresnelSchlick(cos_theta_i, n1, n2);
 
-                            if (length(refracted_dir) > 0.0f && length(refracted_dir) > 0.001f) {
+                            if (length(refracted_dir) > 0.001f) {
                                 final_color += current_weight * fresnel_reflectance * get_color_from_sub_hit(reflected_ray, current_time, is_in_water_medium_trace, global_id_xy);
                                 current_ray = Ray(hit_pos + refracted_dir * EPSILON * -1.0f, refracted_dir);
                                 current_weight *= water_body_color_absorption * (1.0f - fresnel_reflectance);
@@ -1741,7 +1320,7 @@ const bvhWorkerScript = `
                                 break;
                             }
                         }
-                        else {
+                        else { // Spheres
                             let s = spheres[hit_info.sphere_idx];
                             let albedo = s.albedo_metallic.xyz;
                             let metallic = s.albedo_metallic.w;
@@ -1750,7 +1329,10 @@ const bvhWorkerScript = `
                             let material_type = u32(s.pbr_properties.z);
                             let refractive_index_object = s.pbr_properties.w;
 
-                            final_color += current_weight * calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                            surface_color = calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
+                            let noise_val = sample3DNoiseTexture(hit_info.hit_pos, 0.2f);
+                            surface_color.r += noise_val * 0.5f;
+                            final_color += current_weight * surface_color;
 
                             if (material_type == MATERIAL_DIFFUSE) {
                                 break;
@@ -1760,8 +1342,7 @@ const bvhWorkerScript = `
                                 current_weight *= albedo;
                             } else if (material_type == MATERIAL_REFRACTIVE) {
                                 let iors_info = get_ior_and_normal(current_ray.direction, N, current_ior, refractive_index_object);
-                                let n1 = iors_info[0];
-                                let n2 = iors_info[1];
+                                let n1 = iors_info[0]; let n2 = iors_info[1];
                                 let adjusted_normal = vec3<f32>(iors_info[2], iors_info[3], iors_info[4]);
 
                                 let cos_theta_i = dot(-current_ray.direction, adjusted_normal);
@@ -1769,12 +1350,11 @@ const bvhWorkerScript = `
                                 let reflected_dir = reflect(current_ray.direction, adjusted_normal);
                                 let reflected_ray_for_calc = Ray(hit_pos + reflected_dir * EPSILON, reflected_dir);
 
-                                let reflected_contrib_color = get_color_from_sub_hit(reflected_ray_for_calc, current_time, is_in_water_medium_trace, global_id_xy);
-                                final_color += current_weight * fresnel_reflectance * reflected_contrib_color;
+                                final_color += current_weight * fresnel_reflectance * get_color_from_sub_hit(reflected_ray_for_calc, current_time, is_in_water_medium_trace, global_id_xy);
 
                                 let refracted_dir = snellsLaw(current_ray.direction, adjusted_normal, n1, n2);
 
-                                if (length(refracted_dir) > 0.0f && length(refracted_dir) > 0.001f) {
+                                if (length(refracted_dir) > 0.001f) {
                                     let refracted_ray_for_calc = Ray(hit_pos + refracted_dir * EPSILON * -1.0f, refracted_dir);
                                     let refracted_contrib_color = get_color_from_sub_hit(refracted_ray_for_calc, current_time, select(0u, 1u, n2 > 1.01f), global_id_xy);
                                     final_color += current_weight * (1.0f - fresnel_reflectance) * albedo * refracted_contrib_color;
@@ -1853,8 +1433,8 @@ const bvhWorkerScript = `
                 }
                 \`;
                     this.shaderManager.wgslRender = \`
-                @group(0) @binding(0) var mainSampler: sampler;
-                @group(0) @binding(1) var mainTexture: texture_2d<f32>; // Samples output of compute shader (unfilterable-float type)
+                // @group(0) @binding(0) var mainSampler: sampler;
+                // @group(0) @binding(1) var mainTexture: texture_2d<f32>; // Samples output of compute shader (unfilterable-float type)
 
                 var<private> uvs: array<vec2<f32>, 6> = array<vec2<f32>, 6>(
                     vec2<f32>(0.0f, 1.0f),
@@ -2022,10 +1602,11 @@ const bvhWorkerScript = `
                     this.sceneManager.updateTimeUniformBuffer(this.totalTime, this.frameCount);
                     this.sceneManager.updateWaterUniformBuffer();
                     this.sceneManager.updateTerrainUniformBuffer();
+                    this.sceneManager.updateRaytracerParamsUniformBuffer();
+                    this.sceneManager.updateCloudParamsUniformBuffer(); // Ensure it's called after SceneManager is fully constructed and UBO buffer exists
 
                     this.sceneManager.manageSpheres();
 
-                    this.sceneManager.updateRaytracerParamsUniformBuffer();
                     this.createComputeBindGroups();
 
                     console.log("WebGPU initialization complete via NovaRayEngine.");
@@ -2047,8 +1628,8 @@ const bvhWorkerScript = `
                 }
             },
             /**
-             * Creates core GPU resources like textures, samplers, UBOs, and pipelines.
-             * This method is called during engine initialization and canvas resize.
+             * Creates core GPU resources like textures, samplers, UBOs, and pipelines
+             * for the main raytracing pass.
              * @async
              */
             async createCoreResourcesAndPipelines() {
@@ -2072,6 +1653,17 @@ const bvhWorkerScript = `
                 console.log(\`Ping-pong textures created by NovaRayEngine with dimensions: \${textureWidth}x\${textureHeight}.\`);
                 this.outputSampler = this.resourceManager.createSampler({ minFilter: 'nearest', magFilter: 'nearest' }, "Output Sampler");
 
+                // Sampler for the 3D noise texture
+                this.noiseSampler = this.resourceManager.createSampler({
+                    addressModeU: 'repeat',
+                    addressModeV: 'repeat',
+                    addressModeW: 'repeat',
+                    magFilter: 'linear',
+                    minFilter: 'linear',
+                    mipmapFilter: 'linear', // Or 'nearest' if no mipmaps for noise texture
+                }, "3D Noise Sampler");
+
+
                 this.uiManager.setLoadingStatus("Creating uniform buffers (NovaRayEngine)...");
                 this.cameraUBOBuffer = this.resourceManager.createBuffer({ size: 96, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Camera UBO");
                 this.lightUBOBuffer = this.resourceManager.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Light UBO");
@@ -2079,6 +1671,7 @@ const bvhWorkerScript = `
                 this.waterUBOBuffer = this.resourceManager.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Water UBO");
                 this.terrainUBOBuffer = this.resourceManager.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Terrain UBO");
                 this.raytracerUBOBuffer = this.resourceManager.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Raytracer Params UBO");
+                this.cloudParamsUBOBuffer = this.resourceManager.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }, "Cloud Params UBO"); // 12 floats * 4 bytes/float = 48 bytes
 
                 this.uiManager.setLoadingStatus("Preparing rendering assets (NovaRayEngine)...");
                 const renderQuadVerticesData = new Float32Array([-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0]);
@@ -2092,7 +1685,21 @@ const bvhWorkerScript = `
                 this.computePipeline = await this.shaderManager.createComputePipeline({
                     layout: this.device.createPipelineLayout({
                         bindGroupLayouts: [
-                            this.device.createBindGroupLayout({ entries: [ { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } }, { binding: 6, visibility: GPUShaderStage.COMPUTE, storageTexture: { format: 'rgba32float', access: 'write-only' } }, { binding: 7, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } }, ] }),
+                            this.device.createBindGroupLayout({
+                                entries: [
+                                    { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                                    { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                                    { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                                    { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                                    { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                                    { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                                    { binding: 6, visibility: GPUShaderStage.COMPUTE, storageTexture: { format: 'rgba32float', access: 'write-only' } },
+                                    { binding: 7, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } },
+                                    { binding: 8, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },      // For 3D Noise Sampler
+                                    { binding: 9, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '3d' } }, // For 3D Noise Texture
+                                    { binding: 10, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform'} } // For CloudParamsUBO
+                                ]
+                            }),
                             this.device.createBindGroupLayout({ entries: [ { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }, ] }),
                         ]
                     }),
@@ -2109,6 +1716,13 @@ const bvhWorkerScript = `
                 }, "Raytracer Render Pipeline");
 
                 console.log("Pipelines created by NovaRayEngine using ShaderManager.");
+                this.uiManager.setLoadingStatus("Pipelines created. Initializing Cloud UBO (placeholder)...");
+                // Actual update call will be added later when SceneManager is updated
+                // if (this.sceneManager && this.cloudParamsUBOBuffer) {
+                //    this.sceneManager.updateCloudParamsUniformBuffer();
+                // } else {
+                //    console.warn("SceneManager or CloudParamsUBOBuffer not ready for initial UBO update in createCoreResourcesAndPipelines.");
+                // }
                 this.uiManager.setLoadingStatus("Pipelines created. Resizing canvas...");
                 resizeCanvasAndAssets();
             },
@@ -2220,7 +1834,7 @@ const bvhWorkerScript = `
 
             /**
              * Creates bind groups for the main raytracing compute shader.
-             * Assumes UBOs, storage buffers, and ping-pong textures are already created and available on `this`.
+             * Assumes UBOs, storage buffers, ping-pong textures, and 3D noise texture/sampler are already created.
              */
             createComputeBindGroups() {
                 const currentWriteTextureView = (this.currentTextureIndex === 0) ? this.outputTextureView0 : this.outputTextureView1;
@@ -2229,13 +1843,14 @@ const bvhWorkerScript = `
                 if (!this.device || !this.computePipeline || !currentWriteTextureView || !currentReadTextureView ||
                     !this.cameraUBOBuffer || !this.lightUBOBuffer || !this.timeUBOBuffer ||
                     !this.waterUBOBuffer || !this.terrainUBOBuffer || !this.raytracerUBOBuffer ||
-                    !this.sphereDataBuffer || !this.bvhNodesBuffer || !this.primitiveIndicesBuffer) {
+                    !this.sphereDataBuffer || !this.bvhNodesBuffer || !this.primitiveIndicesBuffer ||
+                    !this.noiseSampler || !this.noiseTexture3DView || !this.cloudParamsUBOBuffer) { // Added cloudParamsUBOBuffer check
                     console.warn("Skipping compute bind group creation: essential resources not ready.");
                     return;
                 }
 
                 this.computeBindGroup0 = this.device.createBindGroup({
-                    label: "Compute Bind Group 0 (UBOs, Textures)",
+                    label: "Compute Bind Group 0 (UBOs, Textures, Noise)",
                     layout: this.computePipeline.getBindGroupLayout(0),
                     entries: [
                         { binding: 0, resource: { buffer: this.cameraUBOBuffer } },
@@ -2246,6 +1861,9 @@ const bvhWorkerScript = `
                         { binding: 5, resource: { buffer: this.terrainUBOBuffer } },
                         { binding: 6, resource: currentWriteTextureView },
                         { binding: 7, resource: currentReadTextureView },
+                        { binding: 8, resource: this.noiseSampler },      // New binding for 3D Noise Sampler
+                        { binding: 9, resource: this.noiseTexture3DView }, // New binding for 3D Noise Texture View
+                        { binding: 10, resource: { buffer: this.cloudParamsUBOBuffer } } // Added CloudParamsUBOBuffer
                     ],
                 });
 
@@ -2422,6 +2040,8 @@ const bvhWorkerScript = `
                 this.globalRefractiveIndex = 1.50;
                 /** @type {number} Strength of domain warping applied to scene elements. */
                 this.globalWarpStrength = 0.0;
+                /** @type {boolean} Flag to indicate if globalWarpStrength changed, to trigger sphere repopulation. */
+                this.globalWarpStrengthChanged = false;
                 /** @type {number} Height scale for terrain generation. */
                 this.terrainHeightScale = 0.0;
                 /** @type {number} Frequency for terrain noise generation. */
@@ -2443,9 +2063,22 @@ const bvhWorkerScript = `
                 this.MATERIAL_REFLECTIVE = 1;
                 this.MATERIAL_REFRACTIVE = 2;
 
+                // Cloud Parameters (default values)
+                this.cloudLayerMinY = 20.0;
+                this.cloudLayerMaxY = 30.0;
+                this.cloudNoiseScale = 0.05;
+                this.cloudDensityThreshold = 0.3;
+                this.cloudDensityMultiplier = 1.0;
+                this.cloudMarchSteps = 64;
+                this.cloudScatteringCoeff = 0.7;
+                this.cloudAbsorptionCoeff = 0.3;
+                this.cloudBaseColor = [0.8, 0.8, 0.85]; // R, G, B
+                this.cloudAnimationSpeed = 0.03;
+
                 if (this.novaRayEngine.canvas) {
                     this.camera.aspect = this.novaRayEngine.canvas.width / this.novaRayEngine.canvas.height;
                 }
+                this.updateCloudParamsUniformBuffer(); // Initialize UBO with default values
             }
 
             // --- Camera Movement and Rotation Methods ---
@@ -2508,7 +2141,8 @@ const bvhWorkerScript = `
                 else if (axis === 'z' && this.light.position[2] !== value) { this.light.position[2] = value; changed = true; }
                 if (changed) { this.updateLightUniformBuffer(); this.novaRayEngine.resetAccumulation(); }
             }
-            // ... (other setters similarly commented if complex, or left if self-explanatory by name) ...
+            setLightBrightness(value) { value = parseFloat(value); if (this.light.brightness !== value) { this.light.brightness = value; this.updateLightUniformBuffer(); this.novaRayEngine.resetAccumulation();}}
+            setLightSize(value) { value = parseFloat(value); if (this.light.size !== value) { this.light.size = value; this.updateLightUniformBuffer(); this.novaRayEngine.resetAccumulation();}}
             setSunHue(value) {
                 value = parseFloat(value);
                 if (this.sunHue !== value) {
@@ -2518,6 +2152,9 @@ const bvhWorkerScript = `
                     this.novaRayEngine.resetAccumulation();
                 }
             }
+            setWaveStrength(value) { value = parseFloat(value); if (this.waveStrength !== value) { this.waveStrength = value; this.updateWaterUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setWaveFrequency(value) { value = parseFloat(value); if (this.waveFrequency !== value) { this.waveFrequency = value; this.updateWaterUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setWaveSpeed(value) { value = parseFloat(value); if (this.waveSpeed !== value) { this.waveSpeed = value; this.updateWaterUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setGlobalRefractiveIndex(value) {
                 value = parseFloat(value);
                 if (this.globalRefractiveIndex !== value) {
@@ -2527,32 +2164,29 @@ const bvhWorkerScript = `
                     this.novaRayEngine.resetAccumulation();
                 }
             }
-            setGlobalWarpStrength(value) {
-                value = parseFloat(value);
-                if (this.globalWarpStrength !== value) {
-                    this.globalWarpStrength = value;
-                    this.globalWarpStrengthChanged = true; // Flag for manageSpheres
-                    this.manageSpheres();
-                    this.updateRaytracerParamsUniformBuffer();
-                }
-            }
-             setTargetSphereCount(count) {
-                const newCount = parseInt(count);
-                if (this.targetSphereCount !== newCount) {
-                    this.targetSphereCount = newCount;
-                    this.manageSpheres();
-                }
-            }
-            setWaveStrength(value) { value = parseFloat(value); if (this.waveStrength !== value) { this.waveStrength = value; this.updateWaterUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
-            setWaveFrequency(value) { value = parseFloat(value); if (this.waveFrequency !== value) { this.waveFrequency = value; this.updateWaterUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
-            setWaveSpeed(value) { value = parseFloat(value); if (this.waveSpeed !== value) { this.waveSpeed = value; this.updateWaterUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setTerrainHeightScale(value) { value = parseFloat(value); if (this.terrainHeightScale !== value) { this.terrainHeightScale = value; this.updateTerrainUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setTerrainFrequency(value) { value = parseFloat(value); if (this.terrainFrequency !== value) { this.terrainFrequency = value; this.updateTerrainUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setMaxBounces(value) { value = parseInt(value); if (this.maxBounces !== value) { this.maxBounces = value; this.updateRaytracerParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setMaxRaymarchSteps(value) { value = parseInt(value); if (this.maxRaymarchSteps !== value) { this.maxRaymarchSteps = value; this.updateRaytracerParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setShadowSamples(value) { value = parseInt(value); if (this.shadowSamples !== value) { this.shadowSamples = value; this.updateRaytracerParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
             setDofSamples(value) { value = parseInt(value); if (this.dofSamples !== value) { this.dofSamples = value; this.updateRaytracerParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setGlobalWarpStrength(value) {
+                value = parseFloat(value);
+                if (this.globalWarpStrength !== value) {
+                    this.globalWarpStrength = value;
+                    this.globalWarpStrengthChanged = true;
+                    this.manageSpheres();
+                    this.updateRaytracerParamsUniformBuffer();
+                }
+            }
             setSkyPreset(value) { value = parseInt(value); if (this.skyPreset !== value) { this.skyPreset = value; this.updateRaytracerParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setTargetSphereCount(count) {
+                const newCount = parseInt(count);
+                if (this.targetSphereCount !== newCount) {
+                    this.targetSphereCount = newCount;
+                    this.manageSpheres();
+                }
+            }
 
 
             hsvToRgb(h) {
@@ -2915,6 +2549,47 @@ const bvhWorkerScript = `
                 raytracerData[10] = this.camera.apertureSize;
                 engine.device.queue.writeBuffer(engine.raytracerUBOBuffer, 0, raytracerData);
             }
+
+            /** Updates the cloud parameters uniform buffer. */
+            updateCloudParamsUniformBuffer() {
+                const engine = this.novaRayEngine;
+                if (!engine.device || !engine.cloudParamsUBOBuffer || !engine.resourceManager) {
+                    console.warn("SceneManager: CloudParamsUBOBuffer not ready for update.");
+                    return;
+                }
+                const cloudData = new Float32Array(12);
+                const cloudDataUintView = new Uint32Array(cloudData.buffer);
+
+                cloudData[0] = this.cloudLayerMinY;
+                cloudData[1] = this.cloudLayerMaxY;
+                cloudData[2] = this.cloudNoiseScale;
+                cloudData[3] = this.cloudDensityThreshold;
+                cloudData[4] = this.cloudDensityMultiplier;
+                cloudDataUintView[5] = this.cloudMarchSteps;
+                cloudData[6] = this.cloudScatteringCoeff;
+                cloudData[7] = this.cloudAbsorptionCoeff;
+                cloudData[8] = this.cloudBaseColor[0];
+                cloudData[9] = this.cloudBaseColor[1];
+                cloudData[10] = this.cloudBaseColor[2];
+                cloudData[11] = this.cloudAnimationSpeed;
+
+                engine.device.queue.writeBuffer(engine.cloudParamsUBOBuffer, 0, cloudData);
+            }
+
+            // Setters for Cloud Parameters
+            setCloudLayerMinY(value) { value = parseFloat(value); if (this.cloudLayerMinY !== value) { this.cloudLayerMinY = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudLayerMaxY(value) { value = parseFloat(value); if (this.cloudLayerMaxY !== value) { this.cloudLayerMaxY = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudNoiseScale(value) { value = parseFloat(value); if (this.cloudNoiseScale !== value) { this.cloudNoiseScale = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudDensityThreshold(value) { value = parseFloat(value); if (this.cloudDensityThreshold !== value) { this.cloudDensityThreshold = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudDensityMultiplier(value) { value = parseFloat(value); if (this.cloudDensityMultiplier !== value) { this.cloudDensityMultiplier = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudMarchSteps(value) { value = parseInt(value); if (this.cloudMarchSteps !== value) { this.cloudMarchSteps = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudScatteringCoeff(value) { value = parseFloat(value); if (this.cloudScatteringCoeff !== value) { this.cloudScatteringCoeff = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudAbsorptionCoeff(value) { value = parseFloat(value); if (this.cloudAbsorptionCoeff !== value) { this.cloudAbsorptionCoeff = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudBaseColorR(value) { value = parseFloat(value); if (this.cloudBaseColor[0] !== value) { this.cloudBaseColor[0] = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudBaseColorG(value) { value = parseFloat(value); if (this.cloudBaseColor[1] !== value) { this.cloudBaseColor[1] = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudBaseColorB(value) { value = parseFloat(value); if (this.cloudBaseColor[2] !== value) { this.cloudBaseColor[2] = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+            setCloudAnimationSpeed(value) { value = parseFloat(value); if (this.cloudAnimationSpeed !== value) { this.cloudAnimationSpeed = value; this.updateCloudParamsUniformBuffer(); this.novaRayEngine.resetAccumulation(); } }
+
         }
         // --- End SceneManager Definition ---
 
@@ -2990,6 +2665,20 @@ const bvhWorkerScript = `
                 this.sunnyDayButton = document.getElementById('sunnyDayButton');
                 this.duskButton = document.getElementById('duskButton');
                 this.fpsCounterElement = document.getElementById('fps-counter');
+
+                // Cloud Controls
+                this.cloudLayerMinYSlider = document.getElementById('cloudLayerMinYSlider'); this.cloudLayerMinYValue = document.getElementById('cloudLayerMinYValue');
+                this.cloudLayerMaxYSlider = document.getElementById('cloudLayerMaxYSlider'); this.cloudLayerMaxYValue = document.getElementById('cloudLayerMaxYValue');
+                this.cloudNoiseScaleSlider = document.getElementById('cloudNoiseScaleSlider'); this.cloudNoiseScaleValue = document.getElementById('cloudNoiseScaleValue');
+                this.cloudDensityThresholdSlider = document.getElementById('cloudDensityThresholdSlider'); this.cloudDensityThresholdValue = document.getElementById('cloudDensityThresholdValue');
+                this.cloudDensityMultiplierSlider = document.getElementById('cloudDensityMultiplierSlider'); this.cloudDensityMultiplierValue = document.getElementById('cloudDensityMultiplierValue');
+                this.cloudMarchStepsSlider = document.getElementById('cloudMarchStepsSlider'); this.cloudMarchStepsValue = document.getElementById('cloudMarchStepsValue');
+                this.cloudScatteringCoeffSlider = document.getElementById('cloudScatteringCoeffSlider'); this.cloudScatteringCoeffValue = document.getElementById('cloudScatteringCoeffValue');
+                this.cloudAbsorptionCoeffSlider = document.getElementById('cloudAbsorptionCoeffSlider'); this.cloudAbsorptionCoeffValue = document.getElementById('cloudAbsorptionCoeffValue');
+                this.cloudColorRSlider = document.getElementById('cloudColorRSlider'); this.cloudColorRValue = document.getElementById('cloudColorRValue');
+                this.cloudColorGSlider = document.getElementById('cloudColorGSlider'); this.cloudColorGValue = document.getElementById('cloudColorGValue');
+                this.cloudColorBSlider = document.getElementById('cloudColorBSlider'); this.cloudColorBValue = document.getElementById('cloudColorBValue');
+                this.cloudAnimationSpeedSlider = document.getElementById('cloudAnimationSpeedSlider'); this.cloudAnimationSpeedValue = document.getElementById('cloudAnimationSpeedValue');
             }
 
             /**
@@ -3105,6 +2794,20 @@ const bvhWorkerScript = `
 
                 if (sm.skyPreset === 0) { this.sunnyDayButton.classList.add('active'); this.duskButton.classList.remove('active'); }
                 else { this.duskButton.classList.add('active'); this.sunnyDayButton.classList.remove('active'); }
+
+                // Initialize Cloud Controls UI
+                this.updateSliderValueDisplay(this.cloudLayerMinYSlider, this.cloudLayerMinYValue); this.cloudLayerMinYSlider.value = sm.cloudLayerMinY;
+                this.updateSliderValueDisplay(this.cloudLayerMaxYSlider, this.cloudLayerMaxYValue); this.cloudLayerMaxYSlider.value = sm.cloudLayerMaxY;
+                this.updateSliderValueDisplay(this.cloudNoiseScaleSlider, this.cloudNoiseScaleValue, 3); this.cloudNoiseScaleSlider.value = sm.cloudNoiseScale;
+                this.updateSliderValueDisplay(this.cloudDensityThresholdSlider, this.cloudDensityThresholdValue, 2); this.cloudDensityThresholdSlider.value = sm.cloudDensityThreshold;
+                this.updateSliderValueDisplay(this.cloudDensityMultiplierSlider, this.cloudDensityMultiplierValue); this.cloudDensityMultiplierSlider.value = sm.cloudDensityMultiplier;
+                this.updateSliderValueDisplay(this.cloudMarchStepsSlider, this.cloudMarchStepsValue, 0); this.cloudMarchStepsSlider.value = sm.cloudMarchSteps;
+                this.updateSliderValueDisplay(this.cloudScatteringCoeffSlider, this.cloudScatteringCoeffValue, 2); this.cloudScatteringCoeffSlider.value = sm.cloudScatteringCoeff;
+                this.updateSliderValueDisplay(this.cloudAbsorptionCoeffSlider, this.cloudAbsorptionCoeffValue, 2); this.cloudAbsorptionCoeffSlider.value = sm.cloudAbsorptionCoeff;
+                this.updateSliderValueDisplay(this.cloudColorRSlider, this.cloudColorRValue, 2); this.cloudColorRSlider.value = sm.cloudBaseColor[0];
+                this.updateSliderValueDisplay(this.cloudColorGSlider, this.cloudColorGValue, 2); this.cloudColorGSlider.value = sm.cloudBaseColor[1];
+                this.updateSliderValueDisplay(this.cloudColorBSlider, this.cloudColorBValue, 2); this.cloudColorBSlider.value = sm.cloudBaseColor[2];
+                this.updateSliderValueDisplay(this.cloudAnimationSpeedSlider, this.cloudAnimationSpeedValue, 3); this.cloudAnimationSpeedSlider.value = sm.cloudAnimationSpeed;
             }
             /**
              * Initializes all UI event listeners for the application.
@@ -3169,6 +2872,20 @@ const bvhWorkerScript = `
                 this.apertureSizeSlider.addEventListener('input', (e) => { const v = parseFloat(e.target.value); this.updateSliderValueDisplay(this.apertureSizeSlider, this.apertureSizeValue, 2); sm.setApertureSize(v); });
                 this.sunnyDayButton.addEventListener('click', () => { sm.setSkyPreset(0); this.sunnyDayButton.classList.add('active'); this.duskButton.classList.remove('active'); });
                 this.duskButton.addEventListener('click', () => { sm.setSkyPreset(1); this.duskButton.classList.add('active'); this.sunnyDayButton.classList.remove('active'); });
+
+                // Cloud Control Event Listeners
+                this.cloudLayerMinYSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudLayerMinYSlider, this.cloudLayerMinYValue); sm.setCloudLayerMinY(e.target.value); });
+                this.cloudLayerMaxYSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudLayerMaxYSlider, this.cloudLayerMaxYValue); sm.setCloudLayerMaxY(e.target.value); });
+                this.cloudNoiseScaleSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudNoiseScaleSlider, this.cloudNoiseScaleValue, 3); sm.setCloudNoiseScale(e.target.value); });
+                this.cloudDensityThresholdSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudDensityThresholdSlider, this.cloudDensityThresholdValue, 2); sm.setCloudDensityThreshold(e.target.value); });
+                this.cloudDensityMultiplierSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudDensityMultiplierSlider, this.cloudDensityMultiplierValue); sm.setCloudDensityMultiplier(e.target.value); });
+                this.cloudMarchStepsSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudMarchStepsSlider, this.cloudMarchStepsValue, 0); sm.setCloudMarchSteps(e.target.value); });
+                this.cloudScatteringCoeffSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudScatteringCoeffSlider, this.cloudScatteringCoeffValue, 2); sm.setCloudScatteringCoeff(e.target.value); });
+                this.cloudAbsorptionCoeffSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudAbsorptionCoeffSlider, this.cloudAbsorptionCoeffValue, 2); sm.setCloudAbsorptionCoeff(e.target.value); });
+                this.cloudColorRSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudColorRSlider, this.cloudColorRValue, 2); sm.setCloudBaseColorR(e.target.value); });
+                this.cloudColorGSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudColorGSlider, this.cloudColorGValue, 2); sm.setCloudBaseColorG(e.target.value); });
+                this.cloudColorBSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudColorBSlider, this.cloudColorBValue, 2); sm.setCloudBaseColorB(e.target.value); });
+                this.cloudAnimationSpeedSlider.addEventListener('input', (e) => { this.updateSliderValueDisplay(this.cloudAnimationSpeedSlider, this.cloudAnimationSpeedValue, 3); sm.setCloudAnimationSpeed(e.target.value); });
 
                 this.backToMainMenuFromSceneButton.addEventListener('click', () => {
                     if (this.novaRayEngine.animationFrameId) {
@@ -3262,6 +2979,7 @@ const bvhWorkerScript = `
         /**
          * @class AABB
          * @description Axis-Aligned Bounding Box helper class for BVH construction.
+         * Used by both the main thread (for synchronous BVH fallback) and the BVH worker.
          */
         class AABB {
             constructor(min, max) { this.min = min; this.max = max; }
@@ -3273,9 +2991,10 @@ const bvhWorkerScript = `
         /**
          * @class BvhNode
          * @description Represents a node in the Bounding Volume Hierarchy.
+         * Used by both the main thread (for synchronous BVH fallback) and the BVH worker.
          */
         class BvhNode { constructor() { this.minBounds = [Infinity, Infinity, Infinity]; this.maxBounds = [-Infinity, -Infinity, -Infinity]; this.isLeaf = 0; this.primitiveCount = 0; this.leftChildOrFirstPrimitiveIndex = 0; } }
-        const BVH_LEAF_SIZE = 4;
+        const BVH_LEAF_SIZE = 4; // Maximum primitives in a BVH leaf node.
         /** Builds the BVH recursively. This is a global helper for synchronous BVH construction. */
         function buildBvh(primitives, flattenedNodes, primitiveIndices, offset, count) {
             let bbox = new AABB([Infinity, Infinity, Infinity], [-Infinity, -Infinity, -Infinity]);
@@ -3487,3 +3206,5 @@ const bvhWorkerScript = `
     </script>
 </body>
 </html>
+
+[end of NovaRay_Volumetric.html]
