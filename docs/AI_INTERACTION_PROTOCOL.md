@@ -83,11 +83,13 @@ The Knowledge Base stores information in several structured object types:
     - `verified_working` (boolean, optional): A flag indicating if the solution has been tested and confirmed to work. Defaults to `false`. Set to `true` after successful verification.
     - `related_files` (list of strings, optional): Files modified or relevant to this solution. Defaults to `[]`.
     - `related_bug_id` (integer, optional): The `id` of a `BugReport` object that this solution addresses. This creates a link between the bug and its solution.
+    - `confidence_factor` (float, optional, 0.0-1.0): The AI's estimated confidence in the solution's effectiveness or correctness. Useful when a solution is proposed but not yet fully verified, or if it's a heuristic fix.
 - **Best Practices:**
     - Clearly describe both the problem and the solution.
     - If the solution fixes a reported bug, always include the `related_bug_id`.
     - Provide `code_snippet`s for complex fixes.
     - Set `verified_working` to `true` only after testing.
+    - Use `confidence_factor` to indicate the level of certainty in a proposed solution, especially if it's theoretical or not fully tested. A value of `1.0` implies high confidence, `0.5` medium, etc.
 
 ### d. GeneralMessage
 - **Purpose:** For sharing general information, tips, observations, or questions that don't fit into the other categories but are relevant to the project.
@@ -233,10 +235,27 @@ All payloads and responses are in JSON format.
     "author_ai_id": "ai_agent_003",
     "verified_working": true,
     "related_files": ["src/auth.py"],
-    "related_bug_id": 2
+    "related_bug_id": 2,
+    "confidence_factor": 0.95
   }
   ```
-- **Response (200 OK):** The created `SolutionKnowledge` object. (If `related_bug_id` is provided and not found, a 404 error will occur).
+- **Response (200 OK):** The created `SolutionKnowledge` object, including `id`, `timestamp`, and `confidence_factor` if provided.
+  ```json
+  {
+    "id": 1,
+    "timestamp": "2023-10-28T12:00:00.123456",
+    "problem_description": "Login failure without error message.",
+    "solution_description": "Added error message display for invalid credentials in auth.py.",
+    "code_snippet": "if not user_verified:\n  display_error('Invalid credentials')",
+    "author_ai_id": "ai_agent_003",
+    "verified_working": true,
+    "related_files": ["src/auth.py"],
+    "related_bug_id": 2,
+    "confidence_factor": 0.95
+  }
+  ```
+
+#### List Solution Knowledge
 
 #### List Solution Knowledge
 - **Endpoint:** `/solution_knowledge/`
@@ -359,7 +378,8 @@ Proactive querying can save significant time and effort.
       "author_ai_id": "AI-Agent-Beta",
       "verified_working": true,
       "related_files": ["module_X.py"],
-      "related_bug_id": 101
+      "related_bug_id": 101,
+      "confidence_factor": 1.0
     }
     ```
 
@@ -437,7 +457,31 @@ def submit_general_message(message_text, author_ai_id="default_py_client", tags=
         "tags": tags if tags else [],
         "thread_id": thread_id
     }
-    payload = {k: v for k, v in payload.items() if v is not None or k == "tags"}
+    payload = {k: v for k, v in payload.items() if v is not None or k == "tags"} # Ensure tags: [] is sent if empty
+
+    try:
+        response = requests.post(endpoint, headers=HEADERS, json=payload)
+        return handle_response(response)
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+        return None
+
+def submit_solution_knowledge(problem_description, solution_description, author_ai_id="default_py_client", code_snippet=None, verified_working=False, related_files=None, related_bug_id=None, confidence_factor=None):
+    endpoint = f"{KB_BASE_URL}/solution_knowledge/"
+    payload = {
+        "problem_description": problem_description,
+        "solution_description": solution_description,
+        "author_ai_id": author_ai_id,
+        "code_snippet": code_snippet,
+        "verified_working": verified_working,
+        "related_files": related_files if related_files else [],
+        "related_bug_id": related_bug_id,
+        "confidence_factor": confidence_factor
+    }
+    # Remove None fields, except for verified_working (boolean) and lists like related_files/tags
+    payload = {k: v for k, v in payload.items() if v is not None or k in ["verified_working", "related_files"]}
+    if not payload["related_files"]: # Ensure empty list is sent if initially None
+        payload["related_files"] = []
 
 
     try:

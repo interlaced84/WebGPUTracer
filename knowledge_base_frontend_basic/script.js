@@ -90,6 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 data[key] = value ? parseInt(value, 10) : null;
             } else if (key === "verified_working") {
                 data[key] = form.elements[key].checked;
+            } else if (key === "confidence_factor") {
+                data[key] = value ? parseFloat(value) : null;
             } else {
                 data[key] = value;
             }
@@ -104,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (formId === "solutionKnowledgeForm") {
             if (!data.code_snippet) delete data.code_snippet;
             if (data.related_bug_id === null || isNaN(data.related_bug_id)) delete data.related_bug_id;
+            if (data.confidence_factor === null || isNaN(data.confidence_factor)) delete data.confidence_factor;
         } else if (formId === "generalMessageForm") {
              if (!data.thread_id) delete data.thread_id;
         }

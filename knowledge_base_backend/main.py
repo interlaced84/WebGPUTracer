@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, create_engine, Boolean, event, JSON
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, create_engine, Boolean, event, JSON, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.sql import func
@@ -61,6 +61,7 @@ class SolutionKnowledgeCreate(BaseModel):
     verified_working: bool = False
     related_files: List[str] = []
     related_bug_id: Optional[int] = None
+    confidence_factor: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
 class SolutionKnowledge(SolutionKnowledgeCreate, BaseKnowledgeModel):
     pass
@@ -111,6 +112,7 @@ class SolutionKnowledgeDB(Base):
     verified_working = Column(Boolean, default=False)
     related_files = Column(JSON) # Using JSON for list of strings
     related_bug_id = Column(Integer, ForeignKey("bug_reports.id"), nullable=True)
+    confidence_factor = Column(Float, nullable=True)
     bug_report = relationship("BugReportDB", back_populates="solutions")
 
 
