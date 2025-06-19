@@ -2095,7 +2095,7 @@ const bvhWorkerScript = `
                                 surface_color = calculateLighting(hit_pos, N, V, current_time, albedo, metallic, roughness, base_reflectivity, is_in_water_medium_trace, global_id_xy);
                                 final_color += current_weight * surface_color;
                                 break;
-                            } else {
+                            } else { // Regular Spheres (Non-Rock) or other placeholder types
                                 albedo = s_material_props.albedo_metallic.xyz;
                                 metallic = s_material_props.albedo_metallic.w;
                                 roughness = s_material_props.pbr_properties.x;
