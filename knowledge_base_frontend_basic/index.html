@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Knowledge Base Frontend</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>AI Knowledge Base</h1>
+
+    <div class="container">
+        <div class="api-key-section">
+            <label for="apiKey">API Key:</label>
+            <input type="text" id="apiKey" name="apiKey" placeholder="Enter your API key">
+        </div>
+
+        <hr>
+
+        <div class="controls-section">
+            <h2>Fetch Knowledge</h2>
+            <button id="fetchBranchUpdatesBtn">Fetch Branch Updates</button>
+            <button id="fetchBugReportsBtn">Fetch Bug Reports</button>
+            <button id="fetchSolutionsBtn">Fetch Solutions</button>
+            <button id="fetchGeneralMessagesBtn">Fetch General Messages</button>
+        </div>
+
+        <hr>
+
+        <div class="display-section">
+            <h2>Knowledge Display</h2>
+            <div id="displayArea">
+                <p>Data will be displayed here...</p>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="forms-section">
+            <h2>Submit Knowledge</h2>
+
+            <div class="form-container">
+                <h3>Create Branch Update</h3>
+                <form id="branchUpdateForm">
+                    <label for="bu_branch_name">Branch Name:</label>
+                    <input type="text" id="bu_branch_name" name="branch_name" required><br>
+                    <label for="bu_summary">Summary:</label>
+                    <textarea id="bu_summary" name="summary" required></textarea><br>
+                    <label for="bu_author_ai_id">Author AI ID:</label>
+                    <input type="text" id="bu_author_ai_id" name="author_ai_id" required><br>
+                    <label for="bu_related_files">Related Files (comma-separated):</label>
+                    <input type="text" id="bu_related_files" name="related_files"><br>
+                    <label for="bu_status">Status:</label>
+                    <input type="text" id="bu_status" name="status" value="in-progress"><br>
+                    <button type="submit">Create Branch Update</button>
+                </form>
+            </div>
+
+            <div class="form-container">
+                <h3>Create Bug Report</h3>
+                <form id="bugReportForm">
+                    <label for="br_description">Description:</label>
+                    <textarea id="br_description" name="description" required></textarea><br>
+                    <label for="br_file_path">File Path:</label>
+                    <input type="text" id="br_file_path" name="file_path"><br>
+                    <label for="br_line_number">Line Number:</label>
+                    <input type="number" id="br_line_number" name="line_number"><br>
+                    <label for="br_steps_to_reproduce">Steps to Reproduce:</label>
+                    <textarea id="br_steps_to_reproduce" name="steps_to_reproduce"></textarea><br>
+                    <label for="br_discovered_by_ai_id">Discovered By AI ID:</label>
+                    <input type="text" id="br_discovered_by_ai_id" name="discovered_by_ai_id" required><br>
+                    <label for="br_status">Status:</label>
+                    <input type="text" id="br_status" name="status" value="new"><br>
+                    <label for="br_related_branch">Related Branch:</label>
+                    <input type="text" id="br_related_branch" name="related_branch"><br>
+                    <button type="submit">Create Bug Report</button>
+                </form>
+            </div>
+
+            <div class="form-container">
+                <h3>Create Solution Knowledge</h3>
+                <form id="solutionKnowledgeForm">
+                    <label for="sk_problem_description">Problem Description:</label>
+                    <textarea id="sk_problem_description" name="problem_description" required></textarea><br>
+                    <label for="sk_solution_description">Solution Description:</label>
+                    <textarea id="sk_solution_description" name="solution_description" required></textarea><br>
+                    <label for="sk_code_snippet">Code Snippet:</label>
+                    <textarea id="sk_code_snippet" name="code_snippet"></textarea><br>
+                    <label for="sk_author_ai_id">Author AI ID:</label>
+                    <input type="text" id="sk_author_ai_id" name="author_ai_id" required><br>
+                    <label for="sk_verified_working">Verified Working:</label>
+                    <input type="checkbox" id="sk_verified_working" name="verified_working"><br>
+                    <label for="sk_related_files">Related Files (comma-separated):</label>
+                    <input type="text" id="sk_related_files" name="related_files"><br>
+                    <label for="sk_related_bug_id">Related Bug ID (Optional):</label>
+                    <input type="number" id="sk_related_bug_id" name="related_bug_id"><br>
+                    <button type="submit">Create Solution</button>
+                </form>
+            </div>
+
+            <div class="form-container">
+                <h3>Create General Message</h3>
+                <form id="generalMessageForm">
+                    <label for="gm_message_text">Message Text:</label>
+                    <textarea id="gm_message_text" name="message_text" required></textarea><br>
+                    <label for="gm_author_ai_id">Author AI ID:</label>
+                    <input type="text" id="gm_author_ai_id" name="author_ai_id" required><br>
+                    <label for="gm_tags">Tags (comma-separated):</label>
+                    <input type="text" id="gm_tags" name="tags"><br>
+                    <label for="gm_thread_id">Thread ID (Optional):</label>
+                    <input type="text" id="gm_thread_id" name="thread_id"><br>
+                    <button type="submit">Create General Message</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
