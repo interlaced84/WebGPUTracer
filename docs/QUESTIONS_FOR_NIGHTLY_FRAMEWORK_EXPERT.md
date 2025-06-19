@@ -1,30 +1,61 @@
 # Questions & Feedback Points for the Expert on the "Nightly" Branch Framework
 
-These points arise from reviewing the `Nightly` branch documentation (Core Directives, various Protocols, Role definitions, etc.) and considering their integration with the Knowledge Base (KB) API and the "Architect AI" role.
+**Version:** 1.2 (Revised after reviewing `ARCHITECT_PRACTICAL_IMPLEMENTATION_CLARIFICATIONS.md` - ASO_Ref_Practical)
 
-1.  **Synchronization Protocol for Dual Knowledge System:**
-    *   The `KB_PLAINTEXT_PROTOCOL.md` mentions "Periodically sync with the main KB for consistency." The `NOVARAY_CORE_DIRECTIVES.md` (Nightly) states the KB API is "Primary."
-    *   **Question:** Is there a defined process, responsible role, or automated tooling envisioned for this synchronization? What is the source of truth if discrepancies are found during sync? How and when should an AI updating the KB API ensure the corresponding Plaintext Markdown Log is also updated (and vice-versa)?
+This document tracks questions arising from reviewing the `Nightly` branch documentation. Many initial questions (v1.1) have been substantially addressed by `ARCHITECT_PRACTICAL_IMPLEMENTATION_CLARIFICATIONS.md` (ASO_Ref_Practical).
 
-2.  **Granularity and Management of Plaintext Logs:**
-    *   `KB_PLAINTEXT_PROTOCOL.md` states "Anyone can append to these files" (e.g., `KB_MESSAGES.MD`).
-    *   **Question:** For potentially high-volume information, what is the strategy for managing the size and parsability of these Markdown files? Are there plans for rotation, archival, or summarization, especially if they are intended for broad accessibility including simpler LLMs?
+**Status Legend:**
+*   **[ANSWERED]** - Sufficiently clarified by ASO_Ref_Practical.
+*   **[PARTIALLY ANSWERED]** - Clarified, but some operational nuances might remain or depend on specific AI capabilities.
+*   **[OPEN]** - Still a point for future consideration or depends on broader system design.
+*   **[NEW]** - A new question or consideration arising from ASO_Ref_Practical.
 
-3.  **Definition of "Critical" for Escalation & Architect's Judgment:**
-    *   The `AUTOMATION_AND_ESCALATION_PROTOCOL.md` lists criteria for owner notification. Some, like "Major releases or direction changes require explicit approval," are somewhat subjective for an AI.
-    *   **Feedback/Thought:** Would it be preferable for the Architect AI, upon identifying a *potential* major direction change or similarly nuanced "critical" issue, to *propose* it as an escalation item to the User (owner) for confirmation, rather than making the sole judgment call to escalate directly? This maintains User oversight on strategic shifts.
+---
 
-4.  **`confidence_weight` in `GeneralMessage` Objects:**
-    *   The `AI_COLLABORATION_PROTOCOL.md` (Nightly) shows an example `role-declaration` (which would be a `GeneralMessage` in the KB API) including a `confidence_weight`. The current KB API implementation only has `confidence_factor` on `SolutionKnowledge`.
-    *   **Question:** Is the intent for `GeneralMessage` objects in the KB API (or specific types of them like role declarations, status updates, etc.) to also support a confidence metric? If so, the KB API and its detailed `AI_INTERACTION_PROTOCOL.md` would need to be updated to reflect this.
+1.  **Immediate Mirroring to Plaintext - Responsibility & Tooling (ASO_Ref Section 1.2):**
+    *   The ASO_Ref states: "On KB API Update: Immediately mirror update in the corresponding plaintext log (append or edit)."
+    *   **Follow-up from v1.1:**
+        *   Is the individual AI agent that successfully posts to the KB API *also* programmatically responsible for immediately performing this plaintext append/edit?
+            *   **Status: [ANSWERED]** ASO_Ref_Practical Section 1 clarifies: No, only designated Architect/sync-bot/logger AIs handle mirroring on a scheduled sync cycle (1-5 min). General AIs do not write to filesystem for mirroring.
+        *   Or, is "immediately" in this context an ideal achieved practically by a dedicated `sync-bot` or the Architect AI during its next operational cycle?
+            *   **Status: [ANSWERED]** Yes, achieved by scheduled sync.
 
-5.  **GitHub Access & Capabilities for Specific AI Roles:**
-    *   Documents like `GITHUB_MANAGER_ONBOARDING.md` and `roles/ARCHITECT.md` imply that these AI roles might need to interact with or monitor GitHub activities (e.g., PRs, Issues) directly.
-    *   **Clarification Point:** Is it expected that these AI roles will be equipped with separate GitHub API access, associated credentials, and the necessary tooling/logic to perform these GitHub-specific functions? This would be outside the scope of the current self-contained KB API we've developed but is important for defining the full operational capabilities of these roles.
+2.  **`confidence_weight` in `GeneralMessage` - Universality & Practicality (ASO_Ref Section 4):**
+    *   The ASO_Ref states `confidence_weight` is "Required: Yes, for all GeneralMessage objects."
+    *   **Follow-up from v1.1:**
+        *   Does "all" strictly mean *every single type* of `GeneralMessage`? (e.g., factual statements, help requests).
+            *   **Status: [ANSWERED]** ASO_Ref_Practical Section 2 clarifies: Yes, for schema consistency. Use `1.0` for factual/interrogative, `<1.0` for subjective/uncertain. This guidance is clear for implementation.
 
-6.  **Source of Truth for Core Documentation:**
-    *   It appears the `Nightly` branch contains the latest versions of core documents like `NOVARAY_CORE_DIRECTIVES.md` and `AI_INTERACTION_PROTOCOL.md` (summary).
-    *   **Clarification Point:** For ongoing development by AI agents (like Jules/Archie), should the `Nightly` branch versions of these documents be considered the definitive source of truth, superseding versions previously created on other branches (e.g., the detailed `AI_INTERACTION_PROTOCOL.md` created on `feat/integrate-kb-directives`)? This will ensure Archie's heuristics and operational understanding are based on the latest framework.
+3.  **Architect's Role in Merging Documentation to `Nightly` (ASO_Ref Section 6):**
+    *   The ASO_Ref states: "Architect must resolve and merge changes from other branches into Nightly for official adoption."
+    *   **Follow-up from v1.1:**
+        *   Is the expectation that the Architect AI performs Git operations autonomously? Or prepares changes for a human/GitOps bot?
+            *   **Status: [ANSWERED]** ASO_Ref_Practical Section 3 clarifies: Architect *prepares* merge recommendations, PRs, diffs. *Actual execution* is by human or privileged GitOps bot (unless explicit permission for Architect AI to run Git commands is granted, which is treated as a special case).
 
-These clarifications would greatly help in refining the AI roles, interaction protocols, and the Architect AI's review heuristics to best serve the project's goals.
+4.  **"Digest Bot" for Plaintext Summarization (ASO_Ref Section 2.3):**
+    *   The ASO_Ref mentions an optional "Digest Bot."
+    *   **Follow-up from v1.1 (Low priority):** Interaction with Architect/KB API?
+        *   **Status: [PARTIALLY ANSWERED]** ASO_Ref_Practical Section 4 clarifies: Digests are written to `KB_DIGESTS.MD` and may be indexed in KB API. Architect is encouraged to use digests. Further interaction details are TBD by Digest Bot's specific design.
+
+5.  **Error Handling and Resolution in Sync Process (ASO_Ref Section 1.3):**
+    *   The ASO_Ref states that sync conflicts are logged in `KB_SYNC_REPORTS.md`.
+    *   **Follow-up from v1.1:** Expected operational loop for `KB_SYNC_REPORTS.MD`?
+        *   **Status: [ANSWERED]** ASO_Ref_Practical Section 5 clarifies: Architect monitors, attempts automated resolution (KB API as truth), escalates unresolved/ambiguous to User/Owner. Actions logged.
+
+6.  **Initial Seeding of Plaintext Logs for Existing KB API Entries:**
+    *   **Follow-up from v1.1:** Process for initial bulk mirroring?
+        *   **Status: [ANSWERED]** ASO_Ref_Practical Section 6 clarifies: Responsibility of sync-bot or Architect AI. Process is to enumerate KB API entries and create corresponding plaintext logs.
+
+7.  **[NEW] Specific Capabilities of "Logger" AI Role:**
+    *   ASO_Ref_Practical Section 1 mentions a "logger" agent as potentially responsible for plaintext mirroring.
+    *   **Question:** Are there specific directives or capabilities defined for this "logger" role, or is it a functional designation for any AI granted filesystem write permissions for logging? Understanding if this is a distinct, formally defined role might be useful. (Status: [OPEN])
+
+8.  **[NEW] Format/Schema for `KB_SYNC_REPORTS.md` and `KB_LOG_INDEX.md`:**
+    *   ASO_Ref_Practical mentions these files.
+    *   **Question:** Is there a defined schema or format for these operational log files that AIs (like the Architect or sync-bot) would need to parse and write? (Status: [OPEN])
+
+These clarifications will help in:
+*   Defining the precise capabilities required for different AI roles (especially the Architect and general contributing AIs).
+*   Ensuring the `ARCHITECTURAL_REVIEW_HEURISTICS.md` accurately reflects the expected behaviors and responsibilities.
+*   Guiding the implementation details for AI agents interacting with this comprehensive ecosystem.
 ```
