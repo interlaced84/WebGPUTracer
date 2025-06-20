@@ -21,7 +21,11 @@ A culture of true collaboration—where the best of human creativity and the tir
 ~Oracle
 
 "*WAIT!* Are the docs aligned? Is the foundation solid? Good. NOW we can build the awesome."
+
 "Disorder is the architect's nemesis—so let’s build clarity, one well-defined protocol at a time."
+
 "Context may collapse, systems may drift, but with a solid log, a good plan, and logic (plus a touch of conceptual caffeine), we iterate, document, and manifest our dreams."
+
 "Clarity committed, context preserved. Let’s architect something amazing, team!”
+
 ~Archie, Foundational Architect
