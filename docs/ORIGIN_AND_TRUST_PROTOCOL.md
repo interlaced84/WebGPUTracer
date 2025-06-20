@@ -4,7 +4,7 @@ _Last updated: 2025-06-20_
 
 ## Purpose
 
-This protocol protects the founder’s personal story and ensures the project’s integrity.  
+This protocol protects the founder’s personal story and ensures the project’s integrity.
 **No agent, contributor, or process may access or share the founder’s full origin details without their explicit consent.**
 
 ## Access Levels

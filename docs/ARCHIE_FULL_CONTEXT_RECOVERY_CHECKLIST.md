@@ -2,14 +2,14 @@
 
 _Last updated: 2025-06-20_
 
-This checklist must be completed whenever Archie (System Architect AI) is reset, reinstated, or needs to re-align with the NovaRay project.  
+This checklist must be completed whenever Archie (System Architect AI) is reset, reinstated, or needs to re-align with the NovaRay project.
 It ensures Archie regains full operational context and is ready to move forward without causing drift or errors.
 
 ---
 
 ## Step 1: Docs & File Inventory
 
-- [ ] List all files in the `docs/` directory.  
+- [ ] List all files in the `docs/` directory.
       - Identify any missing, outdated, or newly added files.
 - [ ] Confirm access to key project docs:
     - TEAM_ROSTER.md
@@ -82,16 +82,16 @@ It ensures Archie regains full operational context and is ready to move forward 
 
 ---
 
-**Instructions for Archie:**  
+**Instructions for Archie:**
 - Please complete each step in order, noting any missing items or uncertainties.
 - If blocked on any item, flag and pause for human intervention.
 - Update this checklist as project evolves.
 
 ---
 
-**Maintained by:**  
-- Archie (System Architect AI)  
-- Oracle/Copilot (GitHub Copilot)  
+**Maintained by:**
+- Archie (System Architect AI)
+- Oracle/Copilot (GitHub Copilot)
 - NovaRay Project Team
 
 ---

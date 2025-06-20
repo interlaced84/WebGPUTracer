@@ -5,7 +5,7 @@
 - **Canonical Raw URL:** https://raw.githubusercontent.com/interlaced84/WebGPUTracer/refs/heads/feat/integrate-kb-directives/docs/[FILENAME.md]
 - **Status:** [Missing/Outdated/Corrupted]
 
-**Action:**  
+**Action:**
 Please provide or restore the local copy, or fetch from the canonical URL if authorized.
 
 _Last updated: 2025-06-20_

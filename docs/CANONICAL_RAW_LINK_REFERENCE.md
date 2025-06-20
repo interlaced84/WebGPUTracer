@@ -3,7 +3,7 @@
 When referencing or retrieving files directly from the GitHub repository, use the following format:
 
 ```
-https://raw.githubusercontent.com/interlaced84/WebGPUTracer/refs/heads/feat/integrate-kb-directives/docs/[FILENAME.md]
+https://raw.githubusercontent.com/interlaced84/WebGPUTracer/refs/heads/feat/integrate-kb-directives/docs/[FILENAME.MD]
 ```
 
 **Example for a specific file:**

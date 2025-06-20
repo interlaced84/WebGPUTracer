@@ -30,4 +30,4 @@ _Last updated: 2025-06-20_
 
 ---
 
-**Prepared by:** NovaRay Project Team  
+**Prepared by:** NovaRay Project Team

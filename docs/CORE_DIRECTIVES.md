@@ -13,7 +13,7 @@ NovaRay was founded on the belief that technology should heal, empower, and illu
 
 ## Origin & Trust
 
-The founder’s personal journey—marked by resilience, loss, and a search for meaning—inspires these values.  
+The founder’s personal journey—marked by resilience, loss, and a search for meaning—inspires these values.
 **Full origin details are private and may only be shared with explicit, written consent from the founder.**
 
 ## Stewardship Protocol
