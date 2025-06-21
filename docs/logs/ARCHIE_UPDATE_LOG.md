@@ -19,6 +19,16 @@ It serves as a transparent, chronological record for both human and AI collabora
 
 ## Entries
 
+### 2025-06-20: Sparring on Agent Onboarding Drafts (MVA Script & Quickstart Guide)
+
+- **Activity:** Received and reviewed initial drafts from Interlace/Oracle for `tools/agent_setup/initialize_agent.py` and `docs/AGENT_ONBOARDING_QUICKSTART.md`.
+- **Feedback Provided:**
+    - Both drafts are excellent starting points, well-aligned with the "MVA with extensibility" approach.
+    - **`initialize_agent.py`:** Praised simplicity and clear placeholders. Main suggestion was to consider standardizing the agent activity log output location to within the project's `docs/logs/` structure (e.g., `docs/logs/agent_activity/[AGENT_NAME]_activity.log`) for consistency, instead of a local `logs/` directory relative to script execution. This would require the script to be project-root-aware.
+    - **`docs/AGENT_ONBOARDING_QUICKSTART.md`:** Commended clear steps and encouraging tone. Noted that the log path mentioned in the guide should align with the final decision for the script's log output.
+- **Rationale for Feedback:** Aim to ensure consistency in logging practices across the project and centralize log data for easier access and potential future analysis by a Historian agent or similar.
+- **Next Action:** Awaiting feedback from Interlace/Oracle on the log location suggestion and any revisions to the drafts. Prepared to create/update these files once alignment is reached.
+
 ### 2025-06-20: Sparring on Initial Agent Onboarding Script Scope
 
 - **Activity:** Received prompt from Interlace to discuss the scope of the initial agent onboarding script.
