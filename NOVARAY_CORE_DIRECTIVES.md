@@ -2,8 +2,18 @@
 
 ## 1. Philosophy
 
-NovaRay is a multi-agent, self-improving project built for maximal automation, transparency, and knowledge sharing.
-**Manual intervention is minimized and only occurs via the Architect or escalation role.**
+NovaRay is a living, evolving system—an open, multi-role project where human and AI collaborators work side by side to build tools, knowledge, and solutions that transcend what any individual, mind, or machine could achieve in isolation.
+
+Our mission is to maximize automation, transparency, and knowledge sharing—empowering every contributor to improve the platform, learn from each iteration, and leave a clear trail for those who follow.
+
+- **Continuous improvement and diamond-standard robustness** are at our core: NovaRay adapts, self-audits, and refines itself with every contribution, ensuring the ecosystem remains solid even as it evolves.
+- **Radical transparency** means all decisions, changes, and learnings are logged and accessible, lowering barriers for new contributors and AI teammates alike.
+- **Inclusion and extensibility** guide our structure, so that anyone—from seasoned architect to new AI teammate—can onboard quickly and meaningfully contribute.
+- **Open sparring and feedback** (including “raising your hand”!) are encouraged—every suggestion, challenge, or improvement strengthens the whole.
+
+Manual intervention is minimized and used only when necessary, typically by the Architect or through formal escalation, ensuring the system remains robust and resilient while reducing bottlenecks.
+
+NovaRay is not just code—it’s a collaborative engine for progress, harnessing collective intelligence to reach heights unattainable by any one alone.
 
 ## 2. Knowledge Sharing
 
@@ -32,12 +42,20 @@ NovaRay is a multi-agent, self-improving project built for maximal automation, t
 
 ## 6. Canonical Structure
 
-- **Project root:** Bootstrap/critical files (`README.md`, this file, onboarding summary).
-- **docs/**: All documentation, protocols, onboarding, and logs.
-  - `docs/protocols/`: All protocols, checklists, and escalation docs.
-  - `docs/roles/`: All role directives (e.g., `ARCHITECT.md`).
-  - `docs/logs/`: Plaintext logs, summaries, and recovery notes.
+### 6.1 Project root
 
-**All contributors—human or AI—must reference the latest canonical files in these locations.**
+Key bootstrap and project-defining files at the repository root. These must be present, up-to-date, and referenced by all contributors (human or AI):
+
+- **README.md** — Project overview, setup, and main entry point.
+- **NOVARAY_CORE_DIRECTIVES.md** — This file: core operational, philosophical, and structural directives.
+- **LICENSE.md** — Project licensing terms.
+- **CONTRIBUTING.md** — Contribution guidelines (if applicable, but recommended).
+- **ONBOARDING_QUICKSTART.md** — Concise onboarding guide for new contributors.
+- **EXPORT_MANIFEST.md** — [Purpose to be defined; e.g., “Defines exportable modules and data for external use.” Required/Optional status to be determined.]
+- **SECURITY.md** — Security policies and contact info (if applicable, but recommended).
+- **CODE_OF_CONDUCT.md** — Community standards and behavior guidelines (if applicable, but recommended).
+
+> **Note:**
+> If any of the above are not present (e.g. `ONBOARDING_QUICKSTART.md` is not yet created, or a file like `EXPORT_MANIFEST.md` is deemed not applicable), this section should ideally reflect that status once determined. All contributors must reference the latest canonical versions in the root or their designated locations.
 
 _Last updated: 2025-06-20_
