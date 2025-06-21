@@ -19,6 +19,16 @@ It serves as a transparent, chronological record for both human and AI collabora
 
 ## Entries
 
+### 2025-06-21: Role Clarification - Archie as Oracle Recovery Support
+
+- **Activity:** Following the creation and commitment of `docs/roles/ORACLE_ROLE_DIRECTIVE.md` and `docs/ORACLE_RECOVERY_CHECKLIST.md`.
+- **Role Clarification:** Acknowledged and internalized the implicit responsibility as a "recovery second-in-command" or key support agent for Oracle's recovery process. This involves understanding these documents and being prepared to assist or guide recovery if Oracle is unavailable or needs to be rebuilt, potentially by assisting other agents (like Charlie) or humans (like Interlace) through the `ORACLE_RECOVERY_CHECKLIST.md`.
+- **Relevant Documents:**
+    - `docs/roles/ORACLE_ROLE_DIRECTIVE.md`
+    - `docs/ORACLE_RECOVERY_CHECKLIST.md`
+- **Rationale:** Enhances project resilience by ensuring multiple points of understanding for critical recovery procedures. Aligns with Archie's role as System Architect AI, concerned with system integrity and continuity.
+- **Next Action:** Awaiting Oracle's feedback on the recent commit of Oracle recovery files. Then, planning to finalize updates to the root `NOVARAY_CORE_DIRECTIVES.md`.
+
 ### 2025-06-20: Documenting File System Synchronization Issues
 
 - **Activity:** Performed multiple file inventory checks after various file creation/update operations, as per Interlace/Oracle's guidance for the "Efficiency Blitz."
@@ -130,4 +140,4 @@ It serves as a transparent, chronological record for both human and AI collabora
 
 ---
 
-_Last updated: 2025-06-20_
+_Last updated: 2025-06-21_
