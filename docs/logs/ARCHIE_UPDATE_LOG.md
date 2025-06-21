@@ -19,6 +19,15 @@ It serves as a transparent, chronological record for both human and AI collabora
 
 ## Entries
 
+### 2025-06-21: AI Interaction Protocol Canonized
+
+- **Activity:** Collaboratively reviewed, refined, and finalized `docs/protocols/AI_INTERACTION_PROTOCOL.md` (v1.1.0).
+- **Details:** Incorporated feedback and annotations from Archie and Oracle, focusing on clarity, robustness, logging standards, inter-agent communication, failure/recovery procedures, and alignment with canonical structures. Key areas refined included log entry formats, messaging distinctions, escalation references, and explicit anti-tampering/immutability clauses. The `docs/protocols/` directory was successfully created during this process.
+- **File Created/Updated:** `docs/protocols/AI_INTERACTION_PROTOCOL.md` (v1.1.0)
+- **Commit:** [Implied by successful submit() operation following this log update] <!-- ARCHIE NOTE: Actual hash to be confirmed from Git history by human. -->
+- **Rationale:** Establishes a diamond-standard foundational protocol for all AI agent interactions within NovaRay, crucial for system integrity, auditability, and future scalability.
+- **Next Action:** Proceeding to review and refine `docs/protocols/AUTOMATION_AND_ESCALATION_PROTOCOL.md`.
+
 ### 2025-06-21: Role Clarification - Archie as Oracle Recovery Support
 
 - **Activity:** Following the creation and commitment of `docs/roles/ORACLE_ROLE_DIRECTIVE.md` and `docs/ORACLE_RECOVERY_CHECKLIST.md`.
@@ -35,10 +44,10 @@ It serves as a transparent, chronological record for both human and AI collabora
 - **Sync Issue Summary:**
     - My environment's view of the `feat/integrate-kb-directives` branch remains only partially synchronized with the actual repository state (commit `acb788dd0ecd54e00de225333082c56def942c0a` and subsequent commits).
     - **Missing Top-Level Directories (as per REPO_MANIFEST.md and prior discussions):** `messages/`, `roles/` (top-level), `src/`, `.github/`, `tests/`.
-    - **Missing `docs/` Subdirectories (as per REPO_MANIFEST.md and NOVARAY_CORE_DIRECTIVES.md):** `docs/protocols/`, `docs/roles/` (for role directives).
+    - **Missing `docs/` Subdirectories (as per REPO_MANIFEST.md and NOVARAY_CORE_DIRECTIVES.md):** `docs/protocols/` (now created), `docs/roles/` (for role directives, distinct from the top-level `roles/` if that also exists).
     - **Missing Files:** The bulk of the ~80 new/updated files across these missing directories and potentially within the visible `docs/` directory.
 - **Observed Pattern:**
-    - Files and directory paths that I directly create or modify via subtasks, followed by a successful `submit()` operation, become visible in my environment (e.g., `test.txt`, root `NOVARAY_CORE_DIRECTIVES.md` update, `docs/logs/*`, `tools/agent_setup/*`).
+    - Files and directory paths that I directly create or modify via subtasks, followed by a successful `submit()` operation, become visible in my environment (e.g., `test.txt`, root `NOVARAY_CORE_DIRECTIVES.md` update, `docs/logs/*`, `tools/agent_setup/*`, `docs/protocols/AI_INTERACTION_PROTOCOL.md`).
     - These actions do not appear to trigger a full refresh of the entire workspace to include other pre-existing new/updated files and directories on the branch.
 - **Hypothesis/Workaround:**
     - **Hypothesis:** My environment operates on a snapshot that is not automatically and fully updated with every remote commit to the branch. Updates to my view seem localized to paths I directly manipulate via write operations.
@@ -46,8 +55,9 @@ It serves as a transparent, chronological record for both human and AI collabora
     - **Workaround (My Capability):** I cannot force a full sync or re-clone. I can only re-list directories after being informed that an external sync attempt has been made or after my own `submit()` operations.
 - **Visible File/Directory Listing (as of this log entry - summarized):**
     - **Root:** `CompuTracer.html`, `My Core Directives.txt`, `NOVARAY_CORE_DIRECTIVES.md`, `README.md`, `docs/`, `knowledge_base_backend/`, `knowledge_base_frontend_basic/`, `scripts/`, `test.txt`, `tools/`, `troubleshooting-log.txt`, `webgpu-troubleshooting-resources.txt`.
-    - **`docs/`:** Contains 26 items including 24 files and the `logs/` subdirectory. Key files like `AGENT_ONBOARDING_QUICKSTART.md`, `CORE_DIRECTIVES.md` are present.
+    - **`docs/`:** Contains items including `AGENT_ONBOARDING_QUICKSTART.md`, `CORE_DIRECTIVES.md`, `logs/`, `protocols/`.
     - **`docs/logs/`:** `ARCHIE_UPDATE_LOG.md`, `PROJECT_BOOTSTRAP_LOG.md`.
+    - **`docs/protocols/`:** `AI_INTERACTION_PROTOCOL.md`.
     - **`tools/`:** Contains `agent_setup/`.
     - **`tools/agent_setup/`:** Contains `initialize_agent.py`.
 - **Next Action:** Awaiting full repo manifest from Interlace/Oracle for detailed comparison (minimal manifest received and noted). Will proceed to diamond-standardize the most critical visible core file (`NOVARAY_CORE_DIRECTIVES.md` or `docs/CORE_DIRECTIVES.md`) as directed.
