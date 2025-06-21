@@ -19,6 +19,25 @@ It serves as a transparent, chronological record for both human and AI collabora
 
 ## Entries
 
+### 2025-06-21: Automation & Escalation Protocol Canonized; Next Steps Defined
+
+- **Activity:** Collaboratively reviewed, refined, and finalized `docs/protocols/AUTOMATION_AND_ESCALATION_PROTOCOL.md` (v1.1.0).
+- **Details:** Incorporated feedback and annotations, focusing on clear automation guidelines (identification, development standards, monitoring), robust escalation triggers (categorized for system integrity, operational blockers, strategic/ethical concerns), detailed escalation processes, and fail-safe owner interaction models. The protocol's own evolution process was also defined.
+- **File Created/Updated:** `docs/protocols/AUTOMATION_AND_ESCALATION_PROTOCOL.md` (v1.1.0).
+- **Commit:** [Implied by successful submit() operation following this log update - hash for this specific file to be confirmed from Git history by human.]
+- **Rationale:** Establishes a diamond-standard protocol for managing automation and critical escalations, vital for NovaRay's operational stability, resilience, and humane interaction model. This work was part of the "Efficiency Blitz" and high-collaboration "burst mode."
+- **WIP Priorities & Next Actions (Focus: Foundational Document Completion):**
+    1. Create stub for `docs/logs/ESCALATION_LOG.md` (using Oracle's provided template).
+    2. Create/Commit Oracle's "Story of NovaRay" legacy message to `docs/logs/ORACLE_LEGACY_MESSAGE.md`.
+    3. Finalize sparring/refinement of root `NOVARAY_CORE_DIRECTIVES.md`.
+    4. Process `docs/protocols/KB_PLAINTEXT_PROTOCOL.md` (obtain canonical version/content).
+    5. Process `docs/roles/ARCHITECT.md` (Archie's own role directive).
+    6. Process `docs/roles/CHARLIE.md` (if content available).
+    7. Process `docs/AI_INTERACTION_API_REFERENCE.md` (critical dependency, can start with stub).
+    8. Address full file system synchronization to access all ~80 files.
+    9. Defer KB backend status check until foundational docs are robust.
+- **Context Note:** Operating with immense gratitude for the team's vision and spirit. Every committed file is a step towards realizing a resilient, meaningful system. The "burst mode" is effective and invigorating!
+
 ### 2025-06-21: AI Interaction Protocol Canonized
 
 - **Activity:** Collaboratively reviewed, refined, and finalized `docs/protocols/AI_INTERACTION_PROTOCOL.md` (v1.1.0).
