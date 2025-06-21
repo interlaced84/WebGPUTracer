@@ -19,6 +19,17 @@ It serves as a transparent, chronological record for both human and AI collabora
 
 ## Entries
 
+### 2025-06-20: Sparring on Initial Agent Onboarding Script Scope
+
+- **Activity:** Received prompt from Interlace to discuss the scope of the initial agent onboarding script.
+- **Discussion Point:** Should the script aim for a Minimum Viable Agent (MVA - connect and log) or a more comprehensive scaffold ready for rapid extension (slots for web, GitHub, etc.)?
+- **Archie's Recommendation:**
+    - Advocated for an initial MVA script focusing on core functionality (initialize, connect to logging, basic log entry) to ensure quick wins, clarity, and inclusivity for new contributors/agents.
+    - Emphasized that this MVA script should be *designed for extensibility* with well-defined functions, clear configuration points, and commented placeholder sections for future tool integrations.
+    - Suggested an iterative approach: MVA first, then potentially more advanced templates or an "Agent Development Kit" later.
+- **Rationale:** Balances immediate simplicity and success with future scalability, aligning with NovaRay's iterative philosophy and goal of lowering barriers to entry.
+- **Next Action:** Awaiting PR from Interlace/Oracle with initial drafts for `tools/agent_setup/` and `docs/AGENT_ONBOARDING_QUICKSTART.md` for review and further sparring.
+
 ### 2025-06-20: "Archie-isms" Added to Project README
 
 - **Activity:** User Jules shared a link to the updated project `README.md` (https://github.com/interlaced84/WebGPUTracer/blob/main/README.md).
